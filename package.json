@@ -8,6 +8,7 @@
     "setup": "node scripts/setup-env.mjs",
     "test:api": "node scripts/test-api.mjs",
     "seed": "node scripts/seed.mjs",
+    "register": "node scripts/replay-register.mjs",
     "reset": "node scripts/reset.mjs"
   }
 }
