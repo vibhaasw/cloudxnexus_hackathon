@@ -259,7 +259,7 @@
         .order('arrived_at', { ascending: false }),
       supabaseClient
         .from('sell_estimates')
-        .select('batch_id, estimated_sell_date, expiry_risk, computed_at')
+        .select('batch_id, estimated_sell_date, expiry_risk, status, range_earliest_date, range_latest_date, computed_at')
     ]);
 
     if (batchesRes.error) throw batchesRes.error;
@@ -457,9 +457,19 @@
         }
       }
 
-      const estSellDate = est && est.estimated_sell_date
-        ? est.estimated_sell_date
-        : '<span style="color: var(--text-faint); font-size:12px;">Not calculated (deferred)</span>';
+      let estSellDate = '<span style="color: var(--text-faint); font-size:12px;">Pending calculation</span>';
+      if (est) {
+        if (est.estimated_sell_date) {
+          const rangeInfo = (est.range_earliest_date && est.range_latest_date && est.range_earliest_date !== est.range_latest_date)
+            ? `<div style="font-size:11px; color:var(--text-muted);">(range: ${escapeHtml(est.range_earliest_date)} .. ${escapeHtml(est.range_latest_date)})</div>`
+            : '';
+          estSellDate = `<span style="font-weight:600;">${escapeHtml(est.estimated_sell_date)}</span>${rangeInfo}`;
+        } else if (est.status === 'beyond_horizon') {
+          estSellDate = '<span class="badge-risk risk-pending" style="color:var(--text-muted); border-color:#666;">Beyond horizon</span>';
+        } else if (est.status === 'unknown') {
+          estSellDate = '<span style="color: var(--text-faint); font-size:12px;">Unknown (no forecast)</span>';
+        }
+      }
 
       rowsHtml += `
         <tr>

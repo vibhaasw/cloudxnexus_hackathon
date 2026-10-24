@@ -96,7 +96,8 @@ Deno.serve(async (request: Request) => {
       simulated_mfg_date: data.simulated_mfg_date,
       simulated_expiry_date: data.simulated_expiry_date,
       expiry_is_simulated: true,
-      estimated_sell_date: null,
+      estimated_sell_date: data.estimated_sell_date ?? null,
+      expiry_risk: data.expiry_risk ?? null,
       display_lines: [
         `Product: ${data.product_name}`,
         `Weight: ${weightDisplay} kg (SIMULATED)`,
