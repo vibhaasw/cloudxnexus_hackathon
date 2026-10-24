@@ -59,6 +59,52 @@ export REGISTER_API_KEY='<register-key>'
 node scripts/test-api.mjs
 ```
 
+### ESP32 Scan Station Firmware
+
+#### 1. Physical Wiring Reference (see [docs/wiring.md](docs/wiring.md))
+
+| Component | ESP32 Pin(s) | Description |
+|---|---|---|
+| OLED SSD1306 (I2C) | GPIO 16 (SDA), GPIO 22 (SCL), 3.3V, GND | 128x64 scan feedback display (addr `0x3C`) |
+| RFID MFRC522 (SPI) | GPIO 5 (SS), 18 (SCK), 23 (MOSI), 19 (MISO), 21 (RST), 3.3V, GND | MFRC522 tag reader (3.3V only) |
+| Arrival Trigger | GPIO 27, GND | Pushbutton or IR module (active LOW with internal pull-up) |
+| Sorting Servo | GPIO 25 (PWM), 5V, GND | Visual indicator arm (left 30° / right 150°) |
+| Green LED | GPIO 13 (via 330Ω), GND | Success indicator |
+| Yellow LED | GPIO 14 (via 330Ω), GND | Idle / busy / offline indicator |
+| Red LED | GPIO 26 (via 330Ω), GND | Error / unknown tag indicator |
+| Piezo Buzzer | GPIO 33, GND | Audio feedback (short beep: OK, long beep: Error) |
+
+#### 2. Configuration
+
+Create `circuit_project/config.h` from `circuit_project/config.example.h` (this file is git-ignored and never committed):
+
+```c
+// circuit_project/config.h
+#define WIFI_SSID_1       "Venue_WiFi_SSID"
+#define WIFI_PASS_1       "Venue_WiFi_Password"
+#define WIFI_SSID_2       "Hotspot_SSID"
+#define WIFI_PASS_2       "Hotspot_Password"
+
+#define SUPABASE_URL      "https://<your-project-id>.supabase.co"
+#define SUPABASE_ANON_KEY "<your-anon-public-key>"
+#define DEVICE_API_KEY    "<your-device-api-key>"
+#define DEVICE_ID         "station-01"
+```
+
+#### 3. Compiling and Flashing
+
+With Arduino CLI (or Arduino IDE with ESP32 board support and libraries installed):
+
+```powershell
+arduino-cli compile -b esp32:esp32:esp32 circuit_project
+arduino-cli upload -b esp32:esp32:esp32 -p COM3 circuit_project
+```
+
+#### 4. Wokwi Simulator vs Real Hardware
+
+- **Wokwi Simulator Coverage:** Can simulate RFID scans (via virtual cards), button trigger, OLED text rendering, LED feedback, and servo sweep. Connecting to live cloud requires Wokwi IoT Gateway.
+- **Hardware Limitations (Untested):** Real physical MFRC522 RF antenna range, power supply brownouts when servo draws peak current from 5V rail, and mechanical switch contact bounce.
+
 ## Secrets policy
 
 - `.env` files are git-ignored and must never be committed.

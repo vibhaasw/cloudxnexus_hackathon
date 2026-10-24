@@ -29,6 +29,7 @@ node_modules/
 # ── Build output ──────────────────────────────────────────────
 .pio/
 build/
+circuit_project/libraries/
 
 # ── Logs ──────────────────────────────────────────────────────
 *.log
