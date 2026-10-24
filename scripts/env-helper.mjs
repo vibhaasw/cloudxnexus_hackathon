@@ -84,15 +84,36 @@ export function validateKeyFormat(key, type = 'any') {
 
 export function validateUrl(url) {
   if (!url || typeof url !== 'string') return { valid: false, reason: 'missing or empty' };
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return { valid: false, reason: 'protocol must be http: or https:' };
-    }
-    return { valid: true };
-  } catch {
-    return { valid: false, reason: 'malformed URL' };
+  const trimmed = url.trim().replace(/\/$/, '');
+
+  // Check for Supabase dashboard URL: https://supabase.com/dashboard/project/<ref>(/...)
+  const dashboardMatch = trimmed.match(/^https?:\/\/supabase\.com\/dashboard\/project\/([a-z0-9_-]+)(?:\/.*)?$/i);
+  if (dashboardMatch) {
+    const ref = dashboardMatch[1];
+    return {
+      valid: false,
+      reason: 'Supabase dashboard URL provided instead of API endpoint',
+      isDashboard: true,
+      extractedRef: ref,
+      suggestedUrl: `https://${ref}.supabase.co`,
+      fix: `Change SUPABASE_URL to "https://${ref}.supabase.co" in .env or run "npm run setup"`
+    };
   }
+
+  // Check hosted Supabase API endpoint: https://<project-ref>.supabase.co
+  const hostedMatch = trimmed.match(/^https:\/\/([a-z0-9_-]+)\.supabase\.co$/i);
+  // Also permit local Supabase instances for testing: http://127.0.0.1:<port> or http://localhost:<port>
+  const localMatch = trimmed.match(/^http:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?$/i);
+
+  if (hostedMatch || localMatch) {
+    return { valid: true, url: trimmed };
+  }
+
+  return {
+    valid: false,
+    reason: 'URL must match "https://<project-ref>.supabase.co"',
+    fix: 'Set SUPABASE_URL="https://<project-ref>.supabase.co" in .env or run "npm run setup"'
+  };
 }
 
 /**
@@ -111,7 +132,7 @@ export function validateEnv(requiredKeys = [], { scriptName = 'Script' } = {}) {
           name: 'SUPABASE_URL',
           status: cfg.SUPABASE_URL ? 'malformed' : 'missing',
           details: check.reason,
-          fix: 'Set SUPABASE_URL="https://<project-id>.supabase.co" in .env or run "npm run setup"'
+          fix: check.fix || 'Set SUPABASE_URL="https://<project-ref>.supabase.co" in .env or run "npm run setup"'
         });
       }
     } else if (name === 'SUPABASE_ANON_KEY' || name === 'SUPABASE_PUBLISHABLE_KEY') {

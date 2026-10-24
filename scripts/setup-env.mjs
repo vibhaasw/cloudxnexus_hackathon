@@ -220,23 +220,40 @@ async function runSetup() {
     console.log('[config] Set UNITS_PER_BOX=40 (default D3 demo scale).');
   }
 
-  // Step 5: Masked prompts for Supabase credentials
+  // Step 5: Check and prompt for Supabase credentials
+  // Detect and auto-convert dashboard URLs if present in .env
+  let curUrl = (envMap.get('SUPABASE_URL') || '').trim();
+  let urlCheck = validateUrl(curUrl);
+  if (urlCheck.isDashboard && urlCheck.suggestedUrl) {
+    console.log(`[setup] Detected Supabase dashboard URL in .env for project "${urlCheck.extractedRef}".`);
+    console.log(`[setup] Converted to API endpoint: ${urlCheck.suggestedUrl}`);
+    curUrl = urlCheck.suggestedUrl;
+    envMap.set('SUPABASE_URL', curUrl);
+    urlCheck = validateUrl(curUrl);
+  }
+
   if (!nonInteractive) {
     // 5a. SUPABASE_URL
-    const curUrl = envMap.get('SUPABASE_URL') || '';
-    if (!curUrl || forcePrompt) {
+    if (!curUrl || !urlCheck.valid || forcePrompt) {
       let valid = false;
       while (!valid) {
         const inputUrl = await promptPlain(
-          curUrl ? `SUPABASE_URL [set: press Enter to keep]: ` : 'Enter SUPABASE_URL (e.g. https://xyz.supabase.co): '
+          curUrl && urlCheck.valid
+            ? `SUPABASE_URL [set: press Enter to keep]: `
+            : 'Enter SUPABASE_URL (e.g. https://<project-ref>.supabase.co): '
         );
-        const candidate = inputUrl || curUrl;
+        const candidate = (inputUrl || curUrl).trim();
         const check = validateUrl(candidate);
         if (check.valid) {
           envMap.set('SUPABASE_URL', candidate.replace(/\/$/, ''));
           valid = true;
+        } else if (check.isDashboard && check.suggestedUrl) {
+          console.log(`  ℹ️  Detected Supabase dashboard URL for project "${check.extractedRef}".`);
+          console.log(`     Auto-converting to API endpoint: ${check.suggestedUrl}`);
+          envMap.set('SUPABASE_URL', check.suggestedUrl);
+          valid = true;
         } else {
-          console.error(`  ❌ Invalid URL: ${check.reason}. Try again.`);
+          console.error(`  ❌ Invalid URL: ${check.reason}. ${check.fix || 'Must match https://<project-ref>.supabase.co'}. Try again.`);
         }
       }
     }
