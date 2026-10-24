@@ -1,0 +1,40 @@
+# ── Secrets and local config ──────────────────────────────────
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+supabase/.temp/
+supabase/local-function-secrets
+
+# ── Firmware local config (never committed) ──────────────────
+config.h
+secrets.h
+config.local.*
+
+# ── Python ────────────────────────────────────────────────────
+.venv/
+__pycache__/
+*.pyc
+
+# ── Node ──────────────────────────────────────────────────────
+node_modules/
+
+# ── IDEs ──────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.code-workspace
+
+# ── Build output ──────────────────────────────────────────────
+.pio/
+build/
+
+# ── Logs ──────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── OS files ──────────────────────────────────────────────────
+Thumbs.db
+Desktop.ini
+.DS_Store
