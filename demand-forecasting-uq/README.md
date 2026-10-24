@@ -25,7 +25,7 @@ The working environment used Python 3.14.5. Dependencies were installed and test
 python -m pip install -r requirements.txt
 ```
 
-`main.py` imports only NumPy, pandas, and LightGBM directly. No `.env` file is loaded or read by this program.
+`main.py` imports only NumPy, pandas, and LightGBM directly. It automatically loads `.env` from the repository root if present, while process environment variables set in the terminal always take priority.
 
 ## Run
 A 14-day forward forecast is the default. Forecast dates begin today and include today plus the next 13 days.
@@ -45,7 +45,7 @@ python main.py --dry-run --evaluate
 The JSON dry-run output includes a `data_label` identifying the values as synthetic/simulated. Each forecast row has `forecast_date`, `product_id`, `p10`, `p50`, `p90`, and `generated_at`. The rows are always expressed as **units per day**; `boxes_per_day` trains in boxes and converts the results back to units using 40 units per box. Quantiles are clamped to nonnegative values and ordered so `p10 <= p50 <= p90`.
 
 ## Supabase loader
-A normal run (no `--dry-run` or `--output`) upserts all forecast rows into `public.forecasts` through the Supabase REST API using the unique `(forecast_date, product_id)` key. It requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in the process environment. The service key is for this laptop-side loader only; never put it in the web app or ESP32. This program does not parse an environment file.
+A normal run (no `--dry-run` or `--output`) upserts all forecast rows into `public.forecasts` through the Supabase REST API using the unique `(forecast_date, product_id)` key. It requires `SUPABASE_URL` and `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`) in the process environment or repository `.env`. The secret key is for this laptop-side loader only; never put it in the web app or ESP32. Before uploading, the forecaster verifies up front that all product IDs exist in the database, producing a clear setup message instead of an opaque foreign-key error if products have not yet been seeded.
 
 ```sh
 # Set these variables securely in the terminal environment, not in source code.

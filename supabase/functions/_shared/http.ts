@@ -78,15 +78,44 @@ export function authorizeApiKey(
   return jsonResponse({ error: "invalid API key" }, 401);
 }
 
+/**
+ * Resolves the admin secret key in Supabase Edge Functions.
+ * Prefers modern SUPABASE_SECRET_KEYS (JSON) and SUPABASE_SECRET_KEY (sb_secret_...)
+ * with fallback to legacy SUPABASE_SERVICE_ROLE_KEY.
+ */
+export function getAdminSecretKey(): string | null {
+  const secretKeysJson = Deno.env.get("SUPABASE_SECRET_KEYS");
+  if (secretKeysJson) {
+    try {
+      const parsed = JSON.parse(secretKeysJson);
+      if (typeof parsed === "object" && parsed !== null) {
+        const key = parsed.default || Object.values(parsed)[0];
+        if (typeof key === "string" && key.trim().length > 0) {
+          return key.trim();
+        }
+      }
+    } catch {
+      // ignore parse failure and fall back
+    }
+  }
+  const secretKey = Deno.env.get("SUPABASE_SECRET_KEY");
+  if (secretKey && secretKey.trim().length > 0) return secretKey.trim();
+
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (serviceRoleKey && serviceRoleKey.trim().length > 0) return serviceRoleKey.trim();
+
+  return null;
+}
+
 export function createAdminClient() {
   const url = Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !serviceRoleKey) {
+  const adminKey = getAdminSecretKey();
+  if (!url || !adminKey) {
     throw new Error(
-      "SUPABASE_URL or server-side SUPABASE_SERVICE_ROLE_KEY is not configured",
+      "SUPABASE_URL or server-side secret key (SUPABASE_SECRET_KEYS / SUPABASE_SERVICE_ROLE_KEY) is not configured",
     );
   }
-  return createClient(url, serviceRoleKey, {
+  return createClient(url, adminKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

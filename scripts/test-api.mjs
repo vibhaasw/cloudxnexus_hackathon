@@ -1,23 +1,20 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { loadRootEnv, validateEnv } from './env-helper.mjs';
 
-const baseUrl = process.env.SUPABASE_URL?.replace(/\/$/, '');
-const anonKey = process.env.SUPABASE_ANON_KEY;
-const deviceKey = process.env.DEVICE_API_KEY;
-const registerKey = process.env.REGISTER_API_KEY;
+// Automatically load .env from repository root if present; process environment variables take priority.
+loadRootEnv();
+
+const cfg = validateEnv(
+  ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'DEVICE_API_KEY', 'REGISTER_API_KEY'],
+  { scriptName: 'test-api.mjs' }
+);
+
+const baseUrl = cfg.SUPABASE_URL;
+const anonKey = cfg.SUPABASE_ANON_KEY;
+const deviceKey = cfg.DEVICE_API_KEY;
+const registerKey = cfg.REGISTER_API_KEY;
 const productId = '00000000-0000-4000-8000-000000000001'; // seeded 2 kg chips
-
-for (const [name, value] of Object.entries({
-  SUPABASE_URL: baseUrl,
-  SUPABASE_ANON_KEY: anonKey,
-  DEVICE_API_KEY: deviceKey,
-  REGISTER_API_KEY: registerKey,
-})) {
-  if (!value) {
-    console.error(`Missing required environment variable: ${name}`);
-    process.exit(2);
-  }
-}
 
 const tag = `test-${randomUUID()}`;
 const unknownTag = `unknown-${randomUUID()}`;
@@ -44,7 +41,7 @@ async function readRows(table, filter) {
   url.searchParams.set('select', '*');
   for (const [key, value] of Object.entries(filter)) url.searchParams.set(key, value);
   const response = await fetch(url, {
-    headers: { apikey: anonKey, authorization: `Bearer ${anonKey}` },
+    headers: { apikey: anonKey },
   });
   assert.equal(response.status, 200, `public read of ${table} failed (${response.status})`);
   return response.json();

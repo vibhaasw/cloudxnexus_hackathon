@@ -1,0 +1,13 @@
+{
+  "name": "smart-warehouse-cloud",
+  "version": "1.0.0",
+  "description": "Smart Warehouse IoT backend, firmware, forecaster, and owner dashboard tooling",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "setup": "node scripts/setup-env.mjs",
+    "test:api": "node scripts/test-api.mjs",
+    "seed": "node scripts/seed.mjs",
+    "reset": "node scripts/reset.mjs"
+  }
+}

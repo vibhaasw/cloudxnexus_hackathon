@@ -1,0 +1,336 @@
+#!/usr/bin/env node
+/**
+ * Smart Warehouse IoT — Developer Setup Tooling
+ * TRD Build Step / Developer Tooling
+ * 
+ * Rules:
+ * - Cross-platform Node script (npm run setup).
+ * - Never prints secret values (reports only 'set' or 'missing', and where generated keys were written).
+ * - Creates .env from .env.example if missing; never overwrites existing values unless explicitly requested.
+ * - Generates 32-byte crypto-random DEVICE_API_KEY and REGISTER_API_KEY.
+ * - Supports --rotate-app-keys to regenerate only the two shared application keys with confirmation.
+ * - Prompts with masked input for SUPABASE_URL, publishable key, and secret key.
+ * - Accepts both modern keys (sb_publishable_ / sb_secret_) and legacy keys (anon / service_role).
+ * - Enforces required entries in .gitignore.
+ * - Prints exact Supabase CLI command for Edge Function secrets without echoing secrets.
+ */
+
+import { existsSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import * as readline from 'node:readline';
+import {
+  REPO_ROOT,
+  DEFAULT_ENV_PATH,
+  validateKeyFormat,
+  validateUrl
+} from './env-helper.mjs';
+
+// ── CLI Arguments ───────────────────────────────────────────────
+const args = process.argv.slice(2);
+let envPath = DEFAULT_ENV_PATH;
+let rotateAppKeys = false;
+let nonInteractive = false;
+let forcePrompt = false;
+
+for (let i = 0; i < args.length; i++) {
+  if ((args[i] === '--file' || args[i] === '--path' || args[i] === '--env-file') && args[i + 1]) {
+    envPath = resolve(process.cwd(), args[i + 1]);
+    i++;
+  } else if (args[i] === '--rotate-app-keys') {
+    rotateAppKeys = true;
+  } else if (args[i] === '--non-interactive') {
+    nonInteractive = true;
+  } else if (args[i] === '--force') {
+    forcePrompt = true;
+  }
+}
+
+// ── Helper: Masked Input Prompt ─────────────────────────────────
+function promptMasked(query) {
+  return new Promise((resolvePrompt) => {
+    process.stdout.write(query);
+    if (!process.stdin.isTTY) {
+      const rl = readline.createInterface({ input: process.stdin });
+      rl.once('line', (line) => {
+        rl.close();
+        resolvePrompt(line.trim());
+      });
+      return;
+    }
+
+    let buffer = '';
+    const onData = (char) => {
+      const s = char.toString('utf8');
+      switch (s) {
+        case '\n':
+        case '\r':
+        case '\u0004':
+          process.stdin.setRawMode(false);
+          process.stdin.pause();
+          process.stdin.removeListener('data', onData);
+          process.stdout.write('\n');
+          resolvePrompt(buffer.trim());
+          break;
+        case '\u0003': // Ctrl+C
+          process.stdout.write('\n[Setup aborted by user]\n');
+          process.exit(130);
+          break;
+        case '\u0008': // Backspace
+        case '\u007f':
+          if (buffer.length > 0) {
+            buffer = buffer.slice(0, -1);
+            process.stdout.write('\b \b');
+          }
+          break;
+        default:
+          buffer += s;
+          process.stdout.write('*');
+          break;
+      }
+    };
+
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.on('data', onData);
+  });
+}
+
+function promptPlain(query) {
+  return new Promise((resolvePrompt) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(query, (ans) => {
+      rl.close();
+      resolvePrompt(ans.trim());
+    });
+  });
+}
+
+// ── 1. Check & Enforce .gitignore ───────────────────────────────
+function checkGitignore() {
+  const gitignorePath = resolve(REPO_ROOT, '.gitignore');
+  if (!existsSync(gitignorePath)) return;
+
+  const content = readFileSync(gitignorePath, 'utf8');
+  const required = [
+    '.env',
+    'config.h',
+    'secrets.h',
+    'config.local.*',
+    'web/config.js'
+  ];
+
+  const missing = required.filter((pattern) => {
+    const regex = new RegExp(`(^|\\n)${pattern.replace('*', '.*')}($|\\r|\\n)`, 'm');
+    return !regex.test(content) && !content.includes(pattern);
+  });
+
+  if (missing.length > 0) {
+    console.log(`[gitignore] Adding missing entries to .gitignore: ${missing.join(', ')}`);
+    appendFileSync(gitignorePath, `\n# Local config & secrets\n${missing.join('\n')}\n`);
+  }
+}
+
+// ── 2. Read or Create .env from .env.example ────────────────────
+function parseEnvFile(filePath) {
+  if (!existsSync(filePath)) return new Map();
+  const content = readFileSync(filePath, 'utf8');
+  const map = new Map();
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = line.indexOf('=');
+    if (eqIdx !== -1) {
+      const key = line.slice(0, eqIdx).trim();
+      const val = line.slice(eqIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+      map.set(key, val);
+    }
+  }
+  return map;
+}
+
+function writeEnvFile(filePath, envMap) {
+  const lines = [
+    '# Smart Warehouse IoT — Environment Configuration',
+    '# Generated by npm run setup. Keep this file private and never commit it.',
+    ''
+  ];
+  for (const [key, val] of envMap.entries()) {
+    lines.push(`${key}=${val}`);
+  }
+  lines.push('');
+  writeFileSync(filePath, lines.join('\n'), { encoding: 'utf8', mode: 0o600 });
+}
+
+// ── Main Setup Routine ──────────────────────────────────────────
+async function runSetup() {
+  console.log('===============================================================');
+  console.log('  SMART WAREHOUSE IoT — ENVIRONMENT SETUP (npm run setup)');
+  console.log('===============================================================\n');
+
+  // Step 1: Enforce .gitignore
+  checkGitignore();
+
+  // Step 2: Initialize from .env.example if missing
+  const examplePath = resolve(REPO_ROOT, '.env.example');
+  if (!existsSync(envPath) && existsSync(examplePath)) {
+    console.log(`[init] Creating initial .env from template at ${envPath}`);
+    const template = readFileSync(examplePath, 'utf8');
+    writeFileSync(envPath, template, { encoding: 'utf8', mode: 0o600 });
+  }
+
+  const envMap = parseEnvFile(envPath);
+
+  // Step 3: Application Shared Keys (DEVICE_API_KEY, REGISTER_API_KEY)
+  let needGenerateAppKeys = false;
+  const hasDeviceKey = envMap.has('DEVICE_API_KEY') && envMap.get('DEVICE_API_KEY').length >= 32;
+  const hasRegisterKey = envMap.has('REGISTER_API_KEY') && envMap.get('REGISTER_API_KEY').length >= 32;
+
+  if (rotateAppKeys) {
+    if (!nonInteractive) {
+      const confirmAns = await promptPlain(
+        '⚠️ Are you sure you want to regenerate DEVICE_API_KEY and REGISTER_API_KEY? (yes/no): '
+      );
+      if (confirmAns.toLowerCase() === 'yes' || confirmAns.toLowerCase() === 'y') {
+        needGenerateAppKeys = true;
+      } else {
+        console.log('[setup] Key rotation cancelled.');
+      }
+    } else {
+      needGenerateAppKeys = true;
+    }
+  } else if (!hasDeviceKey || !hasRegisterKey) {
+    needGenerateAppKeys = true;
+  }
+
+  if (needGenerateAppKeys) {
+    const devKey = randomBytes(32).toString('hex');
+    let regKey = randomBytes(32).toString('hex');
+    while (regKey === devKey) regKey = randomBytes(32).toString('hex');
+
+    envMap.set('DEVICE_API_KEY', devKey);
+    envMap.set('REGISTER_API_KEY', regKey);
+    console.log(`[keys] Generated 32-byte cryptographic keys for DEVICE_API_KEY and REGISTER_API_KEY.`);
+    console.log(`[keys] Written securely to ${envPath} (values omitted for safety).`);
+  }
+
+  // Step 4: UNITS_PER_BOX (AGENTS.md D3 default is 40)
+  if (!envMap.has('UNITS_PER_BOX') || !envMap.get('UNITS_PER_BOX')) {
+    envMap.set('UNITS_PER_BOX', '40');
+    console.log('[config] Set UNITS_PER_BOX=40 (default D3 demo scale).');
+  }
+
+  // Step 5: Masked prompts for Supabase credentials
+  if (!nonInteractive) {
+    // 5a. SUPABASE_URL
+    const curUrl = envMap.get('SUPABASE_URL') || '';
+    if (!curUrl || forcePrompt) {
+      let valid = false;
+      while (!valid) {
+        const inputUrl = await promptPlain(
+          curUrl ? `SUPABASE_URL [set: press Enter to keep]: ` : 'Enter SUPABASE_URL (e.g. https://xyz.supabase.co): '
+        );
+        const candidate = inputUrl || curUrl;
+        const check = validateUrl(candidate);
+        if (check.valid) {
+          envMap.set('SUPABASE_URL', candidate.replace(/\/$/, ''));
+          valid = true;
+        } else {
+          console.error(`  ❌ Invalid URL: ${check.reason}. Try again.`);
+        }
+      }
+    }
+
+    // 5b. Publishable / Anon Key
+    const curAnon = envMap.get('SUPABASE_ANON_KEY') || envMap.get('SUPABASE_PUBLISHABLE_KEY') || '';
+    if (!curAnon || forcePrompt) {
+      let valid = false;
+      while (!valid) {
+        const inputKey = await promptMasked(
+          curAnon ? 'SUPABASE Publishable Key (masked) [set: press Enter to keep]: ' : 'Enter SUPABASE Publishable/Anon Key (masked): '
+        );
+        const candidate = inputKey || curAnon;
+        const check = validateKeyFormat(candidate, 'publishable');
+        if (check.valid) {
+          envMap.set('SUPABASE_ANON_KEY', candidate);
+          valid = true;
+        } else {
+          console.error(`  ❌ Invalid publishable key: ${check.reason}. Try again.`);
+        }
+      }
+    }
+
+    // 5c. Secret / Service Role Key
+    const curSecret = envMap.get('SUPABASE_SERVICE_ROLE_KEY') || envMap.get('SUPABASE_SECRET_KEY') || '';
+    if (!curSecret || forcePrompt) {
+      let valid = false;
+      while (!valid) {
+        const inputKey = await promptMasked(
+          curSecret ? 'SUPABASE Secret Key (masked) [set: press Enter to keep]: ' : 'Enter SUPABASE Secret/Service Role Key (masked): '
+        );
+        const candidate = inputKey || curSecret;
+        const check = validateKeyFormat(candidate, 'secret');
+        if (check.valid) {
+          envMap.set('SUPABASE_SERVICE_ROLE_KEY', candidate);
+          valid = true;
+        } else {
+          console.error(`  ❌ Invalid secret key: ${check.reason}. Try again.`);
+        }
+      }
+    }
+  }
+
+  // Write finalized configuration
+  writeEnvFile(envPath, envMap);
+
+  // Step 6: Print Status Table (NO SECRETS EVER PRINTED)
+  console.log('\n---------------------------------------------------------------');
+  console.log(`  ENVIRONMENT STATUS (${envPath})`);
+  console.log('---------------------------------------------------------------');
+  const varsToCheck = [
+    'SUPABASE_URL',
+    'SUPABASE_ANON_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'DEVICE_API_KEY',
+    'REGISTER_API_KEY',
+    'UNITS_PER_BOX'
+  ];
+
+  for (const v of varsToCheck) {
+    const val = envMap.get(v);
+    const isSet = Boolean(val && val.trim().length > 0);
+    const statusText = isSet ? 'set' : 'missing';
+    let extra = '';
+    if (isSet) {
+      if (v === 'UNITS_PER_BOX') extra = `(${val})`;
+      else if (v.includes('KEY')) {
+        const fmt = validateKeyFormat(val);
+        extra = fmt.type ? `[${fmt.type}]` : `[length: ${val.length}]`;
+      }
+    }
+    console.log(`  ${v.padEnd(28)} : ${statusText.padEnd(8)} ${extra}`);
+  }
+  console.log('---------------------------------------------------------------\n');
+
+  // Step 7: Edge Function Secrets Command & Report (Requirement 2)
+  console.log('===============================================================');
+  console.log('  EDGE FUNCTION SECRETS DEPLOYMENT (Supabase CLI)');
+  console.log('===============================================================');
+  console.log('The Edge Functions (scan and register-parcel) require DEVICE_API_KEY');
+  console.log('and REGISTER_API_KEY as server-side function secrets.');
+  console.log('\nRun this command from your terminal to deploy ONLY these two keys:');
+  console.log('  (Values are referenced from your local .env without uploading the whole file)\n');
+  console.log('  supabase secrets set DEVICE_API_KEY="<DEVICE_API_KEY from .env>" REGISTER_API_KEY="<REGISTER_API_KEY from .env>"\n');
+  console.log('Or add them via Supabase Dashboard:');
+  console.log('  Project Settings -> Edge Functions -> Secrets -> Add Secret');
+  console.log('\nNote on UNITS_PER_BOX:');
+  console.log('  The scan function (supabase/functions/scan/index.ts:36) defaults');
+  console.log('  UNITS_PER_BOX to 40. It only needs to be set as a function secret');
+  console.log('  if you want to override the default 40 units/box scale.');
+  console.log('===============================================================\n');
+}
+
+runSetup().catch((err) => {
+  console.error(`\n[FATAL] Setup failed: ${err.message}`);
+  process.exit(1);
+});

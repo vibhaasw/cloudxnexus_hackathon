@@ -19,6 +19,30 @@ import lightgbm as lgb
 import numpy as np
 import pandas as pd
 
+
+def load_root_env() -> None:
+    """Load .env automatically from repository root; process environment variables take priority."""
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if not env_path.is_file():
+        return
+    try:
+        with env_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                trimmed = line.strip()
+                if not trimmed or trimmed.startswith("#") or "=" not in trimmed:
+                    continue
+                key, _, val = trimmed.partition("=")
+                key = key.strip()
+                val = val.strip().strip("'\"")
+                if key and key not in os.environ:
+                    os.environ[key] = val
+    except Exception as exc:
+        logging.warning("Could not read .env from %s: %s", env_path, exc)
+
+
+# Automatically load repo root .env on import
+load_root_env()
+
 FEATURES = [
     "dayofweek",
     "month",
@@ -314,14 +338,44 @@ def write_output(path: str | Path, document: dict[str, Any]) -> None:
 
 
 def upload_forecasts(rows: list[dict[str, Any]]) -> None:
-    """Upsert forecasts using the laptop-only SUPABASE_SERVICE_ROLE_KEY."""
-    base_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
-    service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    """Upsert forecasts using the laptop-only SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY."""
+    base_url = (os.environ.get("SUPABASE_URL") or "").rstrip("/")
+    service_key = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not base_url or not service_key:
         raise RuntimeError(
-            "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in the process environment; "
+            "SUPABASE_URL and SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY) must be set in .env or environment; "
             "use --dry-run or --output if the database is unavailable"
         )
+
+    # Pre-check: verify all product_ids exist in the database before uploading forecasts
+    distinct_product_ids = sorted({str(r["product_id"]) for r in rows})
+    check_endpoint = f"{base_url}/rest/v1/products?select=id"
+    check_req = Request(
+        check_endpoint,
+        method="GET",
+        headers={
+            "apikey": service_key,
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urlopen(check_req, timeout=15) as check_res:
+            if check_res.status == 200:
+                existing_data = json.loads(check_res.read().decode("utf-8"))
+                existing_ids = {str(item["id"]) for item in existing_data if "id" in item}
+                missing_ids = [pid for pid in distinct_product_ids if pid not in existing_ids]
+                if missing_ids:
+                    raise RuntimeError(
+                        f"Cannot upload forecasts: {len(missing_ids)} product ID(s) do not exist in the database: "
+                        f"{', '.join(missing_ids)}. Run 'npm run seed' first to seed demo products."
+                    )
+    except HTTPError as error:
+        logging.warning("Product pre-check returned HTTP %d, proceeding with upsert attempt", error.code)
+    except RuntimeError:
+        raise
+    except Exception as error:
+        logging.warning("Product pre-check skipped due to network/lookup error: %s", error)
+
     endpoint = f"{base_url}/rest/v1/forecasts?{urlencode({'on_conflict': 'forecast_date,product_id'})}"
     payload = json.dumps(rows, separators=(",", ":")).encode("utf-8")
     request = Request(
@@ -330,7 +384,6 @@ def upload_forecasts(rows: list[dict[str, Any]]) -> None:
         method="POST",
         headers={
             "apikey": service_key,
-            "Authorization": f"Bearer {service_key}",
             "Content-Type": "application/json",
             "Prefer": "resolution=merge-duplicates,return=minimal",
         },
