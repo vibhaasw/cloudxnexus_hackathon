@@ -14,8 +14,12 @@
 | Credential exposure | OPEN | circuit_project sketch cleaned; owner advised to rotate any previously exposed credentials. |
 | PRD and TRD copies | VERIFIED | PRD v2 (Supabase) and TRD v1 present in root. |
 
-## Open decisions (defaults in AGENTS.md apply until changed)
-Arrival trigger (push button vs IR sensor; circuit shows a button, no IR), product type source, units per box, ESP32 HTTPS approach, sell-date method confirmation, app hosting.
+| Arrival trigger | RESOLVED | IR obstacle sensor on GPIO 27 (D0). Configurable active level and pull mode; clear-to-rearm logic. Buzzer removed (GPIO 33 free). |
+| Product type source | UNCONFIRMED | Cloud returns product; fallback table in firmware. |
+| Units per box | UNCONFIRMED | D3 default: 40 units/box. |
+| ESP32 HTTPS approach | CONFIGURED | D4 insecure TLS flag enabled for demo. |
+| Sell-date method | NOT STARTED | TRD section 6. |
+| Owner app hosting | NOT STARTED | D6 plain static web app. |
 
 ## Log
 (Add dated entries below, newest last.)
@@ -41,3 +45,12 @@ Arrival trigger (push button vs IR sensor; circuit shows a button, no IR), produ
 - Added docs/wiring.md with complete peripheral table, strapping/PSRAM hardware notes, and bring-up checklist. Updated README.md.
 - Recompiled with Arduino CLI (success, exit 0). Walkthrough tests passed (7/7).
 - Confirmed config.h remains git-ignored and no secrets staged.
+
+### 2026-10-24: IR obstacle sensor arrival trigger & buzzer removal
+- Configured arrival trigger on GPIO 27 for IR obstacle sensor module with clear-to-rearm logic (prevents multi-triggering while a parcel rests in front of the sensor).
+- Added `TRIGGER_ACTIVE_LEVEL` (default `LOW`), `TRIGGER_PULL_MODE` (default `INPUT`), and `TRIGGER_SELF_TEST` serial polarity check mode to `config.example.h` and `config.h`. Optional button isolated behind `ENABLE_BUTTON`.
+- Completely removed piezo buzzer (`PIN_BUZZER 33`, `pinMode`, `beepShort`, `beepError`, and all audio call sites). GPIO 33 is now free and unassigned.
+- Replaced audio cues with non-blocking `millis()`-based LED patterns (`startLedPattern()` / `updateLedPattern()`): Green solid 2s (success), Red 3x quick blink (unknown tag), Yellow 2x quick blink (duplicate), Red solid 2s (timeout/error), Yellow slow blink (offline fallback).
+- Updated `docs/wiring.md` and `README.md` with new trigger specs, bring-up polarity check steps, and LED pattern table.
+- Verified compilation with Arduino CLI (`esp32:esp32:esp32`, flash 84%, RAM 15%, exit 0).
+- Extended simulation test suite in scratch to 8 tests (all passed, 100% success).
