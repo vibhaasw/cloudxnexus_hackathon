@@ -19,6 +19,7 @@ An owner web app shows expected vs arrived, stock and estimated sell dates.
 | `supabase/` | Migration, seed, Edge Functions (`health`, `register-parcel`, `scan`) and config for the Supabase backend. |
 | `circuit_project/` | Wokwi project for the ESP32 scan station (diagram, sketch, libraries). |
 | `Fusion Project Files/` | Autodesk Fusion 360 conveyor generator script, animation script and model (`.f3d`). |
+| `web/` | Owner web dashboard (static HTML/CSS/JS with Supabase Realtime). |
 | `scripts/` | `test-api.mjs` (backend integration test), `reset-demo.sh` (local DB reset). |
 | `docs/` | `backend-api.md` — API contract and usage guide. |
 
@@ -58,6 +59,16 @@ export DEVICE_API_KEY='<device-key>'
 export REGISTER_API_KEY='<register-key>'
 node scripts/test-api.mjs
 ```
+
+### Owner Web App
+
+Serve the static web app locally using the project Python venv (no Node or npm required):
+
+```powershell
+& "c:\Users\Vibhaas\cloud\demand-forecasting-uq\.venv\Scripts\python.exe" -m http.server 8000 --directory web
+```
+
+Then open `http://localhost:8000` in your browser. Configure `web/config.js` or enter the read-only public anon key via the on-screen **⚙ Config** modal. See [web/README.md](web/README.md) for full details.
 
 ### ESP32 Scan Station Firmware
 

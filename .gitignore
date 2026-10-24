@@ -8,10 +8,12 @@
 supabase/.temp/
 supabase/local-function-secrets
 
-# ── Firmware local config (never committed) ──────────────────
+# ── Firmware & Web local config (never committed) ───────────
 config.h
 secrets.h
 config.local.*
+web/config.js
+web/config.local.js
 
 # ── Python ────────────────────────────────────────────────────
 .venv/
@@ -31,9 +33,10 @@ node_modules/
 build/
 circuit_project/libraries/
 
-# ── Logs ──────────────────────────────────────────────────────
+# ── Logs & Scratch ───────────────────────────────────────────
 *.log
 logs/
+scratch/
 
 # ── OS files ──────────────────────────────────────────────────
 Thumbs.db
