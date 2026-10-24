@@ -1,7 +1,7 @@
 # Smart Warehouse IoT
 
 A 24-hour hackathon smart-warehouse system. An ESP32 scan station (RFID,
-trigger input, OLED, LEDs, buzzer) confirms parcel arrivals. A Supabase
+trigger input, OLED, LEDs) confirms parcel arrivals. A Supabase
 backend (Postgres, Edge Functions, Realtime) holds the authoritative
 inventory. A forecaster writes per-product daily forecasts (p10, p50, p90).
 An owner web app shows expected vs arrived, stock and estimated sell dates.
@@ -67,12 +67,11 @@ node scripts/test-api.mjs
 |---|---|---|
 | OLED SSD1306 (I2C) | GPIO 16 (SDA), GPIO 22 (SCL), 3.3V, GND | 128x64 scan feedback display (addr `0x3C`) |
 | RFID MFRC522 (SPI) | GPIO 5 (SS), 18 (SCK), 23 (MOSI), 19 (MISO), 21 (RST), 3.3V, GND | MFRC522 tag reader (3.3V only) |
-| Arrival Trigger | GPIO 27, GND | Pushbutton or IR module (active LOW with internal pull-up) |
+| Arrival Trigger | GPIO 27, GND | IR obstacle sensor D0 output (active level configurable; see `docs/wiring.md`) |
 | Sorting Servo | GPIO 25 (PWM), 5V, GND | Visual indicator arm (left 30° / right 150°) |
 | Green LED | GPIO 13 (via 330Ω), GND | Success indicator |
 | Yellow LED | GPIO 14 (via 330Ω), GND | Idle / busy / offline indicator |
 | Red LED | GPIO 26 (via 330Ω), GND | Error / unknown tag indicator |
-| Piezo Buzzer | GPIO 33, GND | Audio feedback (short beep: OK, long beep: Error) |
 
 #### 2. Configuration
 
@@ -102,7 +101,7 @@ arduino-cli upload -b esp32:esp32:esp32 -p COM3 circuit_project
 
 #### 4. Wokwi Simulator vs Real Hardware
 
-- **Wokwi Simulator Coverage:** Can simulate RFID scans (via virtual cards), button trigger, OLED text rendering, LED feedback, and servo sweep. Connecting to live cloud requires Wokwi IoT Gateway.
+- **Wokwi Simulator Coverage:** Can simulate RFID scans (via virtual cards), IR trigger, OLED text rendering, LED feedback, and servo sweep. Connecting to live cloud requires Wokwi IoT Gateway.
 - **Hardware Limitations (Untested):** Real physical MFRC522 RF antenna range, power supply brownouts when servo draws peak current from 5V rail, and mechanical switch contact bounce.
 
 ## Secrets policy

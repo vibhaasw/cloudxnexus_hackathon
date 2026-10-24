@@ -1,9 +1,9 @@
 /**
  * Smart Warehouse IoT - ESP32 Station Firmware
- * 
+ *
  * Hardware: ESP32 DevKitC V4, SSD1306 OLED, MFRC522 RFID, SG90 Servo,
- *           Pushbutton trigger, RGB status LEDs, Piezo Buzzer.
- * 
+ *           IR obstacle sensor trigger, RGB status LEDs.
+ *
  * NOTE: Conveyor, parcel weights, and expiry dates are SIMULATED and labeled
  *       as SIMULATED on all displays and serial outputs.
  */
@@ -73,15 +73,47 @@ int queueCount = 0;
 String lastScannedUid = "";
 unsigned long lastScanTime = 0;
 unsigned long stateStartTime = 0;
-int lastTriggerReading = HIGH;
-unsigned long lastDebounceTime = 0;
+
+// ── Trigger / Re-arm State ──────────────────────────────────────
+// Strategy: clear-to-rearm.  Once a trigger fires, the sensor must return
+// to the idle (non-detected) level before the firmware will accept the next
+// trigger.  This ensures a parcel resting in front of the sensor fires
+// exactly one scan cycle regardless of how long it stays in range.
+int  lastTriggerReading  = -1;    // -1 means "not yet sampled"
+bool triggerArmed        = true;  // ready to fire when true
+unsigned long lastDebounceTime  = 0;
 const unsigned long DEBOUNCE_DELAY_MS = 50;
+
+// ── Non-blocking LED Pattern State ─────────────────────────────
+// LED patterns are driven by ledUpdatePattern() called every loop().
+// delay() is never used for LED timing so WiFi callbacks stay alive.
+enum LedPatternId {
+  LED_NONE,
+  LED_SUCCESS,       // green solid 2 s
+  LED_ERROR,         // red   solid 2 s
+  LED_UNKNOWN,       // red   3× quick blink
+  LED_DUPLICATE,     // yellow 2× quick blink
+  LED_OFFLINE_BLINK, // yellow slow blink (500/500) — ongoing until reset
+  LED_BUSY           // yellow solid (set immediately; no timed pattern)
+};
+
+LedPatternId activeLedPattern = LED_NONE;
+unsigned long ledPatternStart  = 0;   // millis() when pattern began
+int           ledBlinkCount    = 0;   // remaining blink toggles
+bool          ledBlinkState    = false;
+unsigned long ledLastBlink     = 0;
+
+// ── Self-test State ─────────────────────────────────────────────
+#if TRIGGER_SELF_TEST
+int  selfTestLastLevel = -1;
+unsigned long selfTestLastPrint = 0;
+#endif
 
 // ── Forward Declarations ────────────────────────────────────────
 void showDisplay(const String& l1, const String& l2, const String& l3, const String& l4);
 void setLeds(bool green, bool yellow, bool red);
-void beepShort();
-void beepError();
+void startLedPattern(LedPatternId p);
+void updateLedPattern();
 void moveServo(float weightKg);
 bool connectWiFi(int timeoutSeconds);
 void checkWiFiConnection();
@@ -99,11 +131,13 @@ void setup() {
   Serial.println("==========================================");
 
   // Configure GPIO Pins
-  pinMode(PIN_TRIGGER, TRIGGER_ACTIVE_LOW ? INPUT_PULLUP : INPUT_PULLDOWN);
+  pinMode(PIN_TRIGGER, TRIGGER_PULL_MODE);
   pinMode(PIN_LED_GREEN, OUTPUT);
   pinMode(PIN_LED_YELLOW, OUTPUT);
   pinMode(PIN_LED_RED, OUTPUT);
-  pinMode(PIN_BUZZER, OUTPUT);
+#if ENABLE_BUTTON
+  pinMode(PIN_BUTTON, INPUT_PULLUP);
+#endif
 
   // Initial LED State: Yellow ON (starting up)
   setLeds(false, true, false);
@@ -140,7 +174,7 @@ void setup() {
   // Transition to IDLE
   currentState = STATE_IDLE;
   setLeds(false, true, false);
-  showDisplay("SCAN STATION READY", "Simulated Inventory", "Press button to scan", "Status: IDLE");
+  showDisplay("SCAN STATION READY", "Simulated Inventory", "Awaiting IR trigger", "Status: IDLE");
   Serial.println("[SYSTEM] Ready. Waiting for arrival trigger.");
 }
 
@@ -148,27 +182,74 @@ void setup() {
 void loop() {
   checkWiFiConnection();
   flushOfflineQueue();
+  updateLedPattern();
+
+  // ── Self-test: print raw IR level every 200 ms ───────────────
+#if TRIGGER_SELF_TEST
+  {
+    unsigned long now = millis();
+    if (now - selfTestLastPrint >= 200) {
+      selfTestLastPrint = now;
+      int raw = digitalRead(PIN_TRIGGER);
+      if (raw != selfTestLastLevel) {
+        Serial.print("[SELF-TEST] D0 level CHANGED -> ");
+        Serial.println(raw == HIGH ? "HIGH" : "LOW");
+        selfTestLastLevel = raw;
+      } else {
+        Serial.print("[SELF-TEST] D0 level = ");
+        Serial.println(raw == HIGH ? "HIGH" : "LOW");
+      }
+    }
+  }
+#endif
 
   switch (currentState) {
     case STATE_IDLE: {
-      // Check Arrival Trigger (Debounced)
+      // ── Debounced IR trigger read ───────────────────────────
       int reading = digitalRead(PIN_TRIGGER);
-      int activeLevel = TRIGGER_ACTIVE_LOW ? LOW : HIGH;
+      if (lastTriggerReading == -1) lastTriggerReading = reading; // first sample
 
       if (reading != lastTriggerReading) {
         lastDebounceTime = millis();
       }
 
       if ((millis() - lastDebounceTime) > DEBOUNCE_DELAY_MS) {
-        if (reading == activeLevel) {
+        // Re-arm: sensor returned to idle level → ready for next trigger
+        if (reading != TRIGGER_ACTIVE_LEVEL && !triggerArmed) {
+          triggerArmed = true;
+          Serial.println("[TRIGGER] Sensor cleared — re-armed.");
+        }
+        // Fire: sensor asserts active level AND armed
+        if (reading == TRIGGER_ACTIVE_LEVEL && triggerArmed) {
+          triggerArmed = false;   // disarm until sensor clears
           Serial.println("\n[TRIGGER] Arrival detected! Waiting for RFID tag...");
           currentState = STATE_WAITING_RFID;
           stateStartTime = millis();
-          setLeds(false, true, false);
+          startLedPattern(LED_BUSY);
           showDisplay("PARCEL DETECTED", "Present RFID tag", "Waiting (3s max)...", "Status: TRIGGERED");
         }
       }
       lastTriggerReading = reading;
+
+      // ── Optional manual button trigger ──────────────────────
+#if ENABLE_BUTTON
+      {
+        static int lastBtnReading = HIGH;
+        static unsigned long lastBtnDebounce = 0;
+        int btnReading = digitalRead(PIN_BUTTON);
+        if (btnReading != lastBtnReading) lastBtnDebounce = millis();
+        if ((millis() - lastBtnDebounce) > DEBOUNCE_DELAY_MS) {
+          if (btnReading == LOW && lastBtnReading != LOW) { // falling edge
+            Serial.println("\n[BUTTON] Manual trigger pressed.");
+            currentState = STATE_WAITING_RFID;
+            stateStartTime = millis();
+            startLedPattern(LED_BUSY);
+            showDisplay("MANUAL TRIGGER", "Present RFID tag", "Waiting (3s max)...", "Status: TRIGGERED");
+          }
+        }
+        lastBtnReading = btnReading;
+      }
+#endif
       break;
     }
 
@@ -190,12 +271,9 @@ void loop() {
         if (uid == lastScannedUid && (millis() - lastScanTime) < COOLDOWN_MS) {
           Serial.println("[COOLDOWN] Tag " + uid + " scanned within cooldown window. Ignored.");
           showDisplay("DUPLICATE SCAN", "Cooldown active", "Wait 5s between scans", "Status: DUPLICATE");
-          setLeds(false, true, false);
-          beepShort();
-          delay(1500);
-          currentState = STATE_IDLE;
-          setLeds(false, true, false);
-          showDisplay("SCAN STATION READY", "Simulated Inventory", "Press button to scan", "Status: IDLE");
+          startLedPattern(LED_DUPLICATE);
+          stateStartTime = millis();
+          currentState = STATE_COOLDOWN;
           break;
         }
 
@@ -204,7 +282,7 @@ void loop() {
 
         // Process Scan
         currentState = STATE_PROCESSING_SCAN;
-        setLeds(false, true, false);
+        startLedPattern(LED_BUSY);
         showDisplay("PROCESSING SCAN", "Tag: " + uid, "Calling Cloud API...", "Status: BUSY");
 
         bool cloudOk = executeCloudScan(uid, false);
@@ -218,22 +296,20 @@ void loop() {
       } else if (millis() - stateStartTime > RFID_TIMEOUT_MS) {
         // RFID Timeout
         Serial.println("[RFID TIMEOUT] No tag presented within 3 seconds.");
-        setLeds(false, false, true);
-        beepError();
         showDisplay("RFID TIMEOUT", "No tag detected", "Try again", "Status: TIMEOUT");
-        delay(1500);
-        currentState = STATE_IDLE;
-        setLeds(false, true, false);
-        showDisplay("SCAN STATION READY", "Simulated Inventory", "Press button to scan", "Status: IDLE");
+        startLedPattern(LED_ERROR);
+        stateStartTime = millis();
+        currentState = STATE_COOLDOWN;
       }
       break;
     }
 
     case STATE_COOLDOWN: {
       if (millis() - stateStartTime > 3000) {
+        activeLedPattern = LED_NONE;
         currentState = STATE_IDLE;
         setLeds(false, true, false);
-        showDisplay("SCAN STATION READY", "Simulated Inventory", "Press button to scan", "Status: IDLE");
+        showDisplay("SCAN STATION READY", "Simulated Inventory", "Awaiting IR trigger", "Status: IDLE");
       }
       break;
     }
@@ -264,13 +340,94 @@ void setLeds(bool green, bool yellow, bool red) {
   digitalWrite(PIN_LED_RED, red ? HIGH : LOW);
 }
 
-// ── Buzzer Helpers ──────────────────────────────────────────────
-void beepShort() {
-  tone(PIN_BUZZER, 1200, 150);
+// ── Non-blocking LED Pattern Helpers ────────────────────────────
+// Call startLedPattern() to begin a pattern; updateLedPattern() each loop().
+// delay() is never used here so Wi-Fi callbacks stay alive.
+
+void startLedPattern(LedPatternId p) {
+  activeLedPattern = p;
+  ledPatternStart  = millis();
+  ledBlinkCount    = 0;
+  ledBlinkState    = false;
+  ledLastBlink     = millis();
+
+  switch (p) {
+    case LED_SUCCESS:
+      setLeds(true, false, false);    // green solid; pattern expires after 2 s
+      break;
+    case LED_ERROR:
+      setLeds(false, false, true);    // red solid; pattern expires after 2 s
+      break;
+    case LED_UNKNOWN:
+      ledBlinkCount = 6;              // 3 blinks × 2 transitions (on+off)
+      setLeds(false, false, true);    // red ON first
+      ledBlinkState = true;
+      break;
+    case LED_DUPLICATE:
+      ledBlinkCount = 4;              // 2 blinks × 2 transitions
+      setLeds(false, true, false);    // yellow ON first
+      ledBlinkState = true;
+      break;
+    case LED_OFFLINE_BLINK:
+      setLeds(false, true, false);    // yellow ON to start; slow blink ongoing
+      ledBlinkState = true;
+      break;
+    case LED_BUSY:
+      setLeds(false, true, false);    // yellow solid; no timed transitions
+      break;
+    case LED_NONE:
+    default:
+      break;                          // caller manages LEDs directly
+  }
 }
 
-void beepError() {
-  tone(PIN_BUZZER, 600, 500);
+void updateLedPattern() {
+  if (activeLedPattern == LED_NONE || activeLedPattern == LED_BUSY) return;
+
+  unsigned long now = millis();
+
+  switch (activeLedPattern) {
+    case LED_SUCCESS:
+    case LED_ERROR:
+      // Solid for 2 s then disarm (cooldown will reset LEDs when it expires)
+      if (now - ledPatternStart >= 2000) {
+        activeLedPattern = LED_NONE;
+      }
+      break;
+
+    case LED_UNKNOWN:
+    case LED_DUPLICATE: {
+      // Quick blinks: 100 ms on / 100 ms off
+      if (ledBlinkCount > 0 && (now - ledLastBlink) >= 100) {
+        ledLastBlink  = now;
+        ledBlinkState = !ledBlinkState;
+        ledBlinkCount--;
+        bool isUnknown = (activeLedPattern == LED_UNKNOWN);
+        if (ledBlinkState) {
+          setLeds(false, !isUnknown, isUnknown);   // yellow or red
+        } else {
+          setLeds(false, false, false);
+        }
+      }
+      if (ledBlinkCount == 0) {
+        activeLedPattern = LED_NONE;
+        setLeds(false, false, false);
+      }
+      break;
+    }
+
+    case LED_OFFLINE_BLINK:
+      // Slow blink: 500 ms on / 500 ms off — runs until pattern is reset
+      if ((now - ledLastBlink) >= 500) {
+        ledLastBlink  = now;
+        ledBlinkState = !ledBlinkState;
+        setLeds(false, ledBlinkState, false);
+      }
+      break;
+
+    default:
+      break;
+  }
 }
 
 // ── Servo Sorter Helper ─────────────────────────────────────────
@@ -399,8 +556,7 @@ bool executeCloudScan(const String& uid, bool isQueuedReplay) {
     float weight = resDoc["weight_kg"] | 0.0;
     const char* expiry = resDoc["simulated_expiry_date"] | "N/A";
 
-    setLeds(true, false, false);
-    beepShort();
+    startLedPattern(LED_SUCCESS);
 
     String line1 = String(prodName);
     String line2 = "Wt: " + String(weight, 2) + "kg (SIM)";
@@ -412,14 +568,12 @@ bool executeCloudScan(const String& uid, bool isQueuedReplay) {
     return true;
   } 
   else if (strcmp(result, "duplicate") == 0) {
-    setLeds(false, true, false);
-    beepShort();
+    startLedPattern(LED_DUPLICATE);
     showDisplay("DUPLICATE SCAN", "Tag: " + uid, "Already recorded", "Status: DUPLICATE");
     return true;
   } 
   else if (strcmp(result, "unknown_tag") == 0) {
-    setLeds(false, false, true);
-    beepError();
+    startLedPattern(LED_UNKNOWN);
     showDisplay("UNKNOWN RFID TAG", "Tag: " + uid, "Register item first", "Status: UNKNOWN");
     return true;
   }
@@ -441,8 +595,7 @@ bool handleOfflineScan(const String& uid) {
 
   if (found) {
     Serial.println("[OFFLINE MATCH] " + String(found->name) + " (" + String(found->weight_kg) + " kg SIMULATED)");
-    setLeds(false, true, false); // Yellow indicates offline fallback
-    beepShort();
+    startLedPattern(LED_OFFLINE_BLINK); // yellow slow blink = offline result
 
     // Show simulated result clearly marked as OFFLINE
     String line1 = String(found->name) + " (OFFLINE)";
@@ -472,8 +625,7 @@ bool handleOfflineScan(const String& uid) {
     return true;
   } else {
     Serial.println("[OFFLINE] Tag not found in local table.");
-    setLeds(false, false, true);
-    beepError();
+    startLedPattern(LED_UNKNOWN);
     showDisplay("OFFLINE / UNKNOWN", "Tag: " + uid, "Not in offline table", "Status: UNKNOWN");
     return false;
   }

@@ -25,8 +25,9 @@ All logic levels are **3.3 V CMOS**.
 | | MOSI | **GPIO 23** | — | SPI Master-Out-Slave-In (VSPI MOSI) |
 | | MISO | **GPIO 19** | — | SPI Master-In-Slave-Out (VSPI MISO) |
 | | IRQ | *NC* | — | Not connected / unused |
-| **Arrival Trigger** | Signal | **GPIO 27** | — | Active LOW with internal pull-up (`INPUT_PULLUP`) |
-| (Button / Sensor) | GND | — | **GND** | Connects between GPIO 27 and GND |
+| **Arrival Trigger** | Signal | **GPIO 27** | — | IR obstacle sensor D0 output; active level configurable (`TRIGGER_ACTIVE_LEVEL`); no internal pull (module actively drives D0) |
+| (IR Obstacle Sensor) | GND | — | **GND** | Common ground |
+| | VCC | — | **3.3 V or 5 V** | Check your module's datasheet; D0 is 3.3 V compatible when powered from either rail |
 | **Sorting Servo** | V+ (Red) | — | **5 V** (VIN/VBUS) | High current; powered from 5 V rail |
 | (SG90 Micro Servo) | GND (Brown) | — | **GND** | Common ground |
 | | PWM (Orange) | **GPIO 25** | — | 50 Hz PWM servo control signal |
@@ -36,12 +37,26 @@ All logic levels are **3.3 V CMOS**.
 | (Idle / Offline) | Cathode (-) | — | **GND** | Ground |
 | **Red LED** | Anode (+) | **GPIO 26** | — | Via 330 Ω inline current-limiting resistor |
 | (Error / Unknown) | Cathode (-) | — | **GND** | Ground |
-| **Piezo Buzzer** | Positive (+) | **GPIO 33** | — | Direct drive for passive buzzer tone |
-| | Negative (-) | — | **GND** | Ground |
 
 ---
 
-## 2. Hardware and Strapping Pin Notes
+## 2. LED Feedback Patterns
+
+All LED patterns are non-blocking (`millis()`-based); `delay()` is never used for LED timing.
+
+| Event | Green | Yellow | Red | Pattern |
+|---|---|---|---|---|
+| Boot / Idle | — | ON | — | Yellow solid (always on at idle) |
+| Busy / Reading RFID | — | ON | — | Yellow solid |
+| Cloud OK / Success | ON | — | — | Green solid for 2 s |
+| Unknown RFID tag | — | — | — | Red 3 × quick blink (100 ms on / 100 ms off) |
+| Duplicate scan | — | — | — | Yellow 2 × quick blink (100 ms on / 100 ms off) |
+| RFID timeout / Error | — | — | ON | Red solid for 2 s |
+| Offline fallback | — | — | — | Yellow slow blink (500 ms on / 500 ms off) |
+
+---
+
+## 3. Hardware and Strapping Pin Notes
 
 ### GPIO 16 & PSRAM Restriction (ESP32-WROVER vs ESP32-WROOM)
 - **ESP32-WROOM-32 / DevKitC V4 (Target):** GPIO 16 is a free general-purpose IO pin, fully suitable for I2C SDA.
@@ -64,7 +79,7 @@ All logic levels are **3.3 V CMOS**.
 
 ---
 
-## 3. Hardware Bring-Up Checklist
+## 4. Hardware Bring-Up Checklist
 
 Follow these steps when testing physical hardware for the first time:
 
@@ -76,11 +91,19 @@ Follow these steps when testing physical hardware for the first time:
    - Apply power via USB.
    - Verify Yellow LED illuminates on boot.
    - Verify OLED powers on and shows `"SMART WAREHOUSE / Booting up..."`.
-3. **Arrival Trigger & RFID Scan:**
-   - Press the pushbutton on GPIO 27.
+3. **IR Sensor Polarity Check (before first scan):**
+   - In `config.h` set `TRIGGER_SELF_TEST true`.
+   - Flash the firmware and open Serial Monitor at 115200 baud.
+   - With nothing in front of the sensor, note the reported D0 level (e.g. `HIGH`).
+   - Block the sensor with your hand; confirm the level changes (e.g. `LOW`).
+   - If detected level is `LOW`, leave `TRIGGER_ACTIVE_LEVEL LOW` (default).
+     If detected level is `HIGH`, set `TRIGGER_ACTIVE_LEVEL HIGH`.
+   - Set `TRIGGER_SELF_TEST false` before deploying.
+4. **Arrival Trigger & RFID Scan:**
+   - Place an object in front of the IR sensor.
    - OLED should transition to `"PARCEL DETECTED / Present RFID tag"`.
    - Place an RFID tag over the MFRC522 antenna.
    - Serial monitor (`115200` baud) should print `[RFID] Read Tag UID: <HEX>`.
-4. **Cloud / Offline Verification:**
-   - If Wi-Fi is unconfigured or unreachable, verify Yellow LED stays active, OLED says `(OFFLINE)`, and the event is queued.
-   - With valid `config.h` credentials and active Wi-Fi, verify Green LED turns ON, a short 1200 Hz beep sounds, OLED displays `Status: CLOUD OK` with simulated weight and expiry, and the servo arm sweeps.
+5. **Cloud / Offline Verification:**
+   - If Wi-Fi is unconfigured or unreachable, verify Yellow LED slow-blinks, OLED says `(OFFLINE)`, and the event is queued.
+   - With valid `config.h` credentials and active Wi-Fi, verify Green LED turns ON, OLED displays `Status: CLOUD OK` with simulated weight and expiry, and the servo arm sweeps.

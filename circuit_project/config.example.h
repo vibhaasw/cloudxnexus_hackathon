@@ -27,8 +27,25 @@
 #define COOLDOWN_MS             5000    // Ignore same tag within this cooldown period (ms)
 #define RFID_TIMEOUT_MS         3000    // RFID tag detection timeout (ms)
 #define HTTP_TIMEOUT_MS         5000    // HTTP request timeout (ms)
-#define TRIGGER_ACTIVE_LOW      true    // Button/sensor active level (true = active LOW with pullup)
 #define MAX_OFFLINE_QUEUE       8       // Maximum queued offline scans
+
+// ── Arrival Trigger (IR Obstacle Sensor, GPIO 27) ───────────────
+// TRIGGER_ACTIVE_LEVEL: level the sensor D0 pin asserts when an object is detected.
+//   LOW  = sensor pulls D0 low on detection (most common IR obstacle modules).
+//   HIGH = sensor pulls D0 high on detection (less common; check your module datasheet).
+#define TRIGGER_ACTIVE_LEVEL    LOW
+// TRIGGER_PULL_MODE: internal pull resistor applied to the trigger GPIO.
+//   INPUT         = no internal pull (correct for modules that actively drive D0 — default).
+//   INPUT_PULLUP  = enable internal pull-up  (only if module output is open-drain).
+//   INPUT_PULLDOWN = enable internal pull-down (rarely needed).
+#define TRIGGER_PULL_MODE       INPUT
+// TRIGGER_SELF_TEST: set true to print raw D0 level every 200 ms over serial so you can
+//   verify polarity before the first live scan.  Must be false for normal operation.
+#define TRIGGER_SELF_TEST       false
+// ENABLE_BUTTON: set true only if a physical pushbutton is also wired to PIN_BUTTON.
+//   Uses the same scan code path as the IR trigger.
+#define ENABLE_BUTTON           false
+#define PIN_BUTTON              34      // GPIO for optional manual test button (unused if ENABLE_BUTTON false)
 
 // ── Pin Assignments (Physical Wiring) ───────────────────────────
 // OLED Display (I2C)
@@ -42,12 +59,12 @@
 #define PIN_RFID_MISO           19
 #define PIN_RFID_RST            21
 
-// Other Peripherals (Unchanged)
-#define PIN_TRIGGER             27
+// Other Peripherals
+#define PIN_TRIGGER             27      // IR sensor D0 output
 #define PIN_SERVO               25
 #define PIN_LED_GREEN           13
 #define PIN_LED_YELLOW          14
 #define PIN_LED_RED             26
-#define PIN_BUZZER              33
+// GPIO 33 is unused (buzzer removed)
 
 #endif // CONFIG_H
