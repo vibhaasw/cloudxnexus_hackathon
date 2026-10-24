@@ -76,13 +76,13 @@ Then open `http://localhost:8000` in your browser. Configure `web/config.js` or 
 
 | Component | ESP32 Pin(s) | Description |
 |---|---|---|
-| OLED SSD1306 (I2C) | GPIO 16 (SDA), GPIO 22 (SCL), 3.3V, GND | 128x64 scan feedback display (addr `0x3C`) |
-| RFID MFRC522 (SPI) | GPIO 5 (SS), 18 (SCK), 23 (MOSI), 19 (MISO), 21 (RST), 3.3V, GND | MFRC522 tag reader (3.3V only) |
+| OLED SH1106 1.3" (I2C) | GPIO 16 (SDA), GPIO 22 (SCL), 3.3V, GND | 128x64 scan feedback display via U8g2 (addr `0x3C`) |
+| RFID MFRC522 (SPI) | GPIO 5 (SS), 18 (SCK), 23 (MOSI), 19 (MISO), 21 (RST), 3.3V, GND | MFRC522 tag reader (3.3V only). *Note:* Read range is only a few cm; hold tag directly against reader |
 | Arrival Trigger | GPIO 27, GND | IR obstacle sensor D0 output (active level configurable; see `docs/wiring.md`) |
-| Sorting Servo | GPIO 25 (PWM), 5V, GND | Visual indicator arm (left 30° / right 150°) |
-| Green LED | GPIO 13 (via 330Ω), GND | Success indicator |
-| Yellow LED | GPIO 14 (via 330Ω), GND | Idle / busy / offline indicator |
-| Red LED | GPIO 26 (via 330Ω), GND | Error / unknown tag indicator |
+| Sorting Servo | GPIO 25 (PWM), 5V, GND | Visual indicator arm (left 30° / right 150°, non-blocking) |
+| Green LED | GPIO 13 (via 330Ω), GND | LEFT lane indicator (in LANE mode) or Success (in STATUS mode) |
+| Yellow LED | GPIO 14 (via 330Ω), GND | Idle / tag held / waiting for parcel / offline indicator |
+| Red LED | GPIO 26 (via 330Ω), GND | RIGHT lane indicator (in LANE mode) or Error/Unknown (in STATUS mode). Errors in LANE mode blink all 3 LEDs |
 
 #### 2. Configuration
 
@@ -99,6 +99,9 @@ Create `circuit_project/config.h` from `circuit_project/config.example.h` (this 
 #define SUPABASE_ANON_KEY "<your-anon-public-key>"
 #define DEVICE_API_KEY    "<your-device-api-key>"
 #define DEVICE_ID         "station-01"
+
+// LED Mode: LED_MODE_LANE (1) or LED_MODE_STATUS (0)
+#define CONFIG_LED_MODE   LED_MODE_LANE
 ```
 
 #### 3. Compiling and Flashing
@@ -118,15 +121,12 @@ To read the physical UID of each RFID card or key fob using the firmware over se
    ```powershell
    arduino-cli monitor -p COM3 -c baudrate=115200
    ```
-2. Trigger the arrival sensor by briefly placing a hand or object in front of the IR sensor (GPIO 27). The serial output will log:
-   ```text
-   [TRIGGER] Arrival detected! Waiting for RFID tag...
-   ```
-3. Hold the RFID card or fob against the MFRC522 antenna within 3 seconds. The firmware reads the tag bytes, formats them as uppercase hexadecimal without separators, and prints:
+2. In the ready/idle state (`[SYSTEM] Ready. Step 1: Scan RFID tag.`), hold the RFID card or fob directly against the MFRC522 antenna (within ~1-3 cm; range is only a few centimetres). The firmware reads the tag bytes immediately and logs:
    ```text
    [RFID] Read Tag UID: 01020304
    ```
-   *(Even if the tag is unregistered or the backend returns `unknown_tag`, this serial line is logged immediately on card read.)*
+   *(Even if the tag is unregistered or before a parcel arrives, this serial line is logged immediately on card read.)*
+3. The display will show `TAG <last 4 hex>` and `Place parcel`. If no parcel is placed at the IR sensor within 15 seconds, it returns to idle with no cloud record.
 
 4. **Where to enter the retrieved UIDs:**
    - **Demo Catalog (`scripts/demo-catalog.json`):** Replace the placeholder tag strings (`DEMO-CHIPS-01`, etc.) in `products[].tag_uids` with the real hex UIDs. Then run `npm run register -- --all` to register them.

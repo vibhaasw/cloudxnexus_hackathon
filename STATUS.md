@@ -104,3 +104,20 @@
 - Updated `docs/backend-api.md` with sell-date and expiry risk documentation.
 - Confirmed method matches TRD section 6 and AGENTS.md D3 demo scale (40 units/box sells in ~2 to 6 days).
 - Note: Fusion live hook remains proposed and unapplied (lower priority).
+
+### 2026-10-25: ESP32 hardware alignment & tag-first event order adoption
+- Adopted hardware-proven values from teammate demo into `circuit_project/sketch.ino`:
+  - Display: Switched from Adafruit SSD1306/GFX to U8g2 SH1106 hardware-I2C driver (`U8G2_SH1106_128X64_NONAME_F_HW_I2C`) matching the physical 1.3-inch OLED display. Removed Adafruit dependencies from `libraries.txt`.
+  - Servo: Configured `setPeriodHertz(50)` with `500` to `2400` µs pulse range. Defined configurable angles: LEFT 30°, CENTER 90°, RIGHT 150°. Replaced blocking delays with non-blocking `millis()` timing (`SERVO_HOLD_MS 1500`) so Wi-Fi and sensor handling never block.
+  - New Flow (Tag first, then IR):
+    1. Idle: OLED 'Scan RFID tag', yellow LED ready indicator. IR sensor events are ignored.
+    2. Tag Read: Reads UID, displays 'TAG <last 4 hex>' and 'Place parcel', yellow LED. Holds UID in memory without calling cloud yet.
+    3. Waiting for Parcel: Waits up to `PARCEL_WAIT_TIMEOUT_MS` (15 s) for IR arrival confirmation. Enforces clear-to-rearm: a parcel resting in front of the sensor when the tag is read does not count until it clears and re-enters. Second tag taps while waiting are ignored. On timeout, displays 'No parcel detected', logs nothing in cloud, and returns to idle.
+    4. IR Tripped: Makes exactly ONE cloud scan call with held UID. Extracts `lane` from cloud response when present (falling back to 10 kg rule). Drives servo and LEDs per lane.
+    5. Cooldown, then idle.
+  - LED Mode: Configurable via `CONFIG_LED_MODE` in `config.example.h` (`LED_MODE_LANE` vs `LED_MODE_STATUS`). In LANE mode: Green solid = LEFT lane (<= 10 kg), Red solid = RIGHT lane (> 10 kg), Yellow solid = idle/tag held/waiting/offline. Errors/timeouts/duplicates/unknowns trigger a distinctive all-three-LEDs synchronous triple-flash pattern.
+- Updated `circuit_project/config.example.h`: confirmed all physical pins match teammate's hardware (SDA 16, SCL 22, RFID SS 5, RST 21, SCK 18, MISO 19, MOSI 23, IR 27, Servo 25, Green 13, Yellow 14, Red 26). Added `PARCEL_WAIT_TIMEOUT_MS`, `CONFIG_LED_MODE`, and servo pulse/angle constants.
+- Updated `README.md` and `docs/wiring.md` documenting SH1106 U8g2 display, 13.56MHz RFID read range (~1-3 cm proximity requirement), LANE and STATUS LED modes, and the updated tag-first bring-up checklist.
+- Verified compilation with Arduino CLI (`esp32:esp32:esp32`, Flash 84%, RAM 15%, exit 0).
+- Updated walkthrough test suite (`scratch/simulate_esp32_golden_path.py`): 10/10 tests passing (100% success) covering IR ignored in idle, tag then IR exactly one scan call, parcel timeout with no cloud call, second tag ignored, parcel resting at sensor blocked until clear/re-enter, heavy right lane / light left lane routing, unknown tags, duplicate cooldown, and offline queue flush.
+- Untested note: Physical bench testing on real ESP32 silicon was NOT performed in this session; logic verified via unit tests and Arduino CLI compilation.

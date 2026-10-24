@@ -13,11 +13,11 @@ All logic levels are **3.3 V CMOS**.
 
 | Peripheral | Module Pin | ESP32 GPIO | Power Rail | Notes / Signal Type |
 |---|---|---|---|---|
-| **OLED (SSD1306)** | VCC | — | **3.3 V** | Do not power from 5 V |
+| **OLED (SH1106 1.3")** | VCC | — | **3.3 V** | 1.3-inch 128x64 SH1106 I2C (via U8g2). Do not power from 5 V |
 | | GND | — | **GND** | Common ground |
 | | SCL / SCK | **GPIO 22** | — | I2C Clock (bus shared if needed) |
 | | SDA | **GPIO 16** | — | I2C Data (requires standard WROOM module; see PSRAM note) |
-| **RFID (MFRC522)** | 3.3V | — | **3.3 V** | Dedicated 3.3 V rail (MFRC522 is **not** 5 V tolerant) |
+| **RFID (MFRC522)** | 3.3V | — | **3.3 V** | Dedicated 3.3 V rail (MFRC522 is **not** 5 V tolerant). **Note:** Read range is only a few cm; hold card/fob directly against the antenna |
 | | GND | — | **GND** | Common ground |
 | | RST | **GPIO 21** | — | Hardware reset line |
 | | SDA / NSS / SS | **GPIO 5** | — | SPI Chip Select (VSPI default SS; see boot note) |
@@ -44,15 +44,30 @@ All logic levels are **3.3 V CMOS**.
 
 All LED patterns are non-blocking (`millis()`-based); `delay()` is never used for LED timing.
 
+The firmware supports two modes via `CONFIG_LED_MODE` in `config.h`:
+- `LED_MODE_LANE` (default = 1): Green = LEFT lane, Red = RIGHT lane, Yellow = idle/tag read/waiting/offline. Errors blink all 3 LEDs in sync.
+- `LED_MODE_STATUS` (0): Green = success, Yellow = idle/busy/duplicate/offline, Red = error/unknown.
+
+### Mode A: LANE Mode (`CONFIG_LED_MODE = LED_MODE_LANE`) — Default
 | Event | Green | Yellow | Red | Pattern |
 |---|---|---|---|---|
-| Boot / Idle | — | ON | — | Yellow solid (always on at idle) |
-| Busy / Reading RFID | — | ON | — | Yellow solid |
+| Boot / Idle | — | ON | — | Yellow solid (ready indicator) |
+| Tag Read / Waiting Parcel | — | ON | — | Yellow solid |
+| Scan OK: LEFT Lane (<= 10kg) | ON | — | — | Green solid for 2 s |
+| Scan OK: RIGHT Lane (> 10kg) | — | — | ON | Red solid for 2 s |
+| Error / Timeout / Unknown / Dup | BLINK | BLINK | BLINK | **All 3 LEDs blink synchronously 3×** (150 ms on / 150 ms off) |
+| Offline fallback | — | BLINK | — | Yellow slow blink (500 ms on / 500 ms off) |
+
+### Mode B: STATUS Mode (`CONFIG_LED_MODE = LED_MODE_STATUS`)
+| Event | Green | Yellow | Red | Pattern |
+|---|---|---|---|---|
+| Boot / Idle | — | ON | — | Yellow solid |
+| Tag Read / Busy | — | ON | — | Yellow solid |
 | Cloud OK / Success | ON | — | — | Green solid for 2 s |
-| Unknown RFID tag | — | — | — | Red 3 × quick blink (100 ms on / 100 ms off) |
-| Duplicate scan | — | — | — | Yellow 2 × quick blink (100 ms on / 100 ms off) |
-| RFID timeout / Error | — | — | ON | Red solid for 2 s |
-| Offline fallback | — | — | — | Yellow slow blink (500 ms on / 500 ms off) |
+| Unknown RFID tag | — | — | BLINK | Red 3 × quick blink (100 ms on / 100 ms off) |
+| Duplicate scan | — | BLINK | — | Yellow 2 × quick blink (100 ms on / 100 ms off) |
+| Timeout / Error | — | — | ON | Red solid for 2 s |
+| Offline fallback | — | BLINK | — | Yellow slow blink (500 ms on / 500 ms off) |
 
 ---
 
@@ -99,11 +114,15 @@ Follow these steps when testing physical hardware for the first time:
    - If detected level is `LOW`, leave `TRIGGER_ACTIVE_LEVEL LOW` (default).
      If detected level is `HIGH`, set `TRIGGER_ACTIVE_LEVEL HIGH`.
    - Set `TRIGGER_SELF_TEST false` before deploying.
-4. **Arrival Trigger & RFID Scan:**
-   - Place an object in front of the IR sensor.
-   - OLED should transition to `"PARCEL DETECTED / Present RFID tag"`.
-   - Place an RFID tag over the MFRC522 antenna.
-   - Serial monitor (`115200` baud) should print `[RFID] Read Tag UID: <HEX>`.
+4. **Arrival Confirmation & RFID Scan (Tag First -> IR Confirm):**
+   - Step 1 (Tag read): Hold an RFID card or fob directly against the MFRC522 antenna (within ~1-3 cm).
+   - Serial monitor (`115200` baud) logs `[RFID] Read Tag UID: <HEX>`.
+   - OLED displays `"TAG <last 4 hex> / Place parcel"` and Yellow LED illuminates.
+   - Step 2 (IR confirmation): Place a parcel in front of the IR sensor (GPIO 27) within the 15-second timeout window.
+   - If a parcel was already resting in front of the sensor when the tag was tapped, clear-to-rearm logic requires it to clear first before triggering.
+   - When IR trips, exactly ONE scan request is sent to the cloud.
 5. **Cloud / Offline Verification:**
-   - If Wi-Fi is unconfigured or unreachable, verify Yellow LED slow-blinks, OLED says `(OFFLINE)`, and the event is queued.
-   - With valid `config.h` credentials and active Wi-Fi, verify Green LED turns ON, OLED displays `Status: CLOUD OK` with simulated weight and expiry, and the servo arm sweeps.
+   - If Wi-Fi is unconfigured or unreachable, Yellow LED slow-blinks, OLED displays `(OFFLINE)`, and the event is queued.
+   - With active Wi-Fi and valid credentials, OLED displays `Status: CLOUD OK` with simulated weight, expiry, and lane.
+   - In LANE mode, Green LED illuminates for LEFT lane (<= 10 kg) or Red LED for RIGHT lane (> 10 kg).
+   - SG90 servo arm sweeps non-blocking to 30° (LEFT) or 150° (RIGHT), holds for 1.5s, then returns to 90° center.

@@ -25,9 +25,25 @@
 // ── Feature Flags & Timing ──────────────────────────────────────
 #define ENABLE_SERVO            true    // Set false to completely disable servo sorting
 #define COOLDOWN_MS             5000    // Ignore same tag within this cooldown period (ms)
-#define RFID_TIMEOUT_MS         3000    // RFID tag detection timeout (ms)
+#define PARCEL_WAIT_TIMEOUT_MS  15000   // Timeout waiting for parcel after RFID read (ms)
 #define HTTP_TIMEOUT_MS         5000    // HTTP request timeout (ms)
 #define MAX_OFFLINE_QUEUE       8       // Maximum queued offline scans
+
+// ── LED Behavior Mode ───────────────────────────────────────────
+// LED_MODE_STATUS (0): Green = OK/Success, Yellow = Busy/Duplicate/Offline, Red = Error/Unknown/Timeout
+// LED_MODE_LANE   (1): Green = LEFT lane, Red = RIGHT lane, Yellow = Tag read / Waiting / Offline
+//                      Errors/Unknowns/Timeouts use a distinct ALL-LEDS-BLINK pattern.
+#define LED_MODE_STATUS         0
+#define LED_MODE_LANE           1
+#define CONFIG_LED_MODE         LED_MODE_LANE   // Default to teammate's LANE mode
+
+// ── Servo Sorter Parameters ─────────────────────────────────────
+#define SERVO_LEFT_ANGLE        30      // Sorting angle for LEFT lane (<= 10 kg)
+#define SERVO_CENTER_ANGLE      90      // Gate idle/center position
+#define SERVO_RIGHT_ANGLE       150     // Sorting angle for RIGHT lane (> 10 kg)
+#define SERVO_HOLD_MS           1500    // Non-blocking hold duration at sorting position (ms)
+#define SERVO_MIN_PULSE_US      500     // SG90 min pulse width (us)
+#define SERVO_MAX_PULSE_US      2400    // SG90 max pulse width (us)
 
 // ── Arrival Trigger (IR Obstacle Sensor, GPIO 27) ───────────────
 // TRIGGER_ACTIVE_LEVEL: level the sensor D0 pin asserts when an object is detected.
