@@ -355,6 +355,7 @@ def upload_forecasts(rows: list[dict[str, Any]]) -> None:
         method="GET",
         headers={
             "apikey": service_key,
+            "Authorization": f"Bearer {service_key}",
             "Content-Type": "application/json",
         },
     )
@@ -384,6 +385,7 @@ def upload_forecasts(rows: list[dict[str, Any]]) -> None:
         method="POST",
         headers={
             "apikey": service_key,
+            "Authorization": f"Bearer {service_key}",
             "Content-Type": "application/json",
             "Prefer": "resolution=merge-duplicates,return=minimal",
         },

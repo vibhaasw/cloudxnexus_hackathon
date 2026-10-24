@@ -50,6 +50,7 @@ async function seed() {
     method: 'POST',
     headers: {
       apikey: secretKey,
+      Authorization: `Bearer ${secretKey}`,
       'Content-Type': 'application/json',
       Prefer: 'resolution=merge-duplicates,return=representation'
     },

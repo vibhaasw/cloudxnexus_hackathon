@@ -121,3 +121,9 @@
 - Verified compilation with Arduino CLI (`esp32:esp32:esp32`, Flash 84%, RAM 15%, exit 0).
 - Updated walkthrough test suite (`scratch/simulate_esp32_golden_path.py`): 10/10 tests passing (100% success) covering IR ignored in idle, tag then IR exactly one scan call, parcel timeout with no cloud call, second tag ignored, parcel resting at sensor blocked until clear/re-enter, heavy right lane / light left lane routing, unknown tags, duplicate cooldown, and offline queue flush.
 - Untested note: Physical bench testing on real ESP32 silicon was NOT performed in this session; logic verified via unit tests and Arduino CLI compilation.
+
+### 2026-10-25: PostgREST Authorization Bearer fix for seed script and forecaster
+- Fixed HTTP 404/permission error during `npm run seed`: added `Authorization: Bearer ${secretKey}` header alongside `apikey` in `scripts/seed.mjs` and `demand-forecasting-uq/forecaster.py`.
+- Without `Authorization: Bearer`, PostgREST defaulted requests to the unauthenticated `anon` role, which has only `SELECT` privileges and cannot `INSERT` into `public.products` or `public.forecasts`.
+- Re-ran `scripts/seed.mjs`: successfully seeded all 4 demo products (Chips, Green Tea, Pasta, Coffee) into the database (exit 0).
+- Ran `demand-forecasting-uq/main.py --horizon 14`: successfully upserted 56 forecast rows across 14 days to Supabase in 1.66s. All tests passing.
