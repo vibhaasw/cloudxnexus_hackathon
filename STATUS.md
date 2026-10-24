@@ -6,7 +6,7 @@
 | Prompt 1: Supabase backend | DONE | Verified by owner (tables applied, seed loaded, functions deployed, test script run). |
 | Prompt 2: forecaster | DONE | Verified by owner, forecast upload reported working. 4 unit tests pass, dry run gives 56 rows. |
 | ESP32 station firmware | DONE | Implemented and compiled (Arduino CLI for ESP32 target). Pins changed to match physical wiring. Untested on real hardware. |
-| Owner web app | NOT STARTED | Today, Stock, Live feed views. |
+| Owner web app | DONE | Projector-optimized static web app (Today, Stock, Live feed) with Supabase Realtime. Uses read-only public anon key. |
 | Fusion integration / replay | NOT STARTED | Priority 1 replay script, Priority 2 live call. |
 | Sell-date logic | NOT STARTED | Recalculation on scan / arrival. |
 | Integration check | NOT STARTED | End-to-end rehearsal. |
@@ -19,7 +19,7 @@
 | Units per box | UNCONFIRMED | D3 default: 40 units/box. |
 | ESP32 HTTPS approach | CONFIGURED | D4 insecure TLS flag enabled for demo. |
 | Sell-date method | NOT STARTED | TRD section 6. |
-| Owner app hosting | NOT STARTED | D6 plain static web app. |
+| Owner app hosting | RESOLVED | D6 plain static web app in `web/`; zero-dependency local run via Python venv `http.server` or any static host. |
 
 ## Log
 (Add dated entries below, newest last.)
@@ -54,3 +54,13 @@
 - Updated `docs/wiring.md` and `README.md` with new trigger specs, bring-up polarity check steps, and LED pattern table.
 - Verified compilation with Arduino CLI (`esp32:esp32:esp32`, flash 84%, RAM 15%, exit 0).
 - Extended simulation test suite in scratch to 8 tests (all passed, 100% success).
+
+### 2026-10-24: Owner web app implementation (TRD Section 10 / Step 5)
+- Built hosting-agnostic static web application in `web/` using HTML5, modern CSS, and JavaScript with Supabase Realtime client.
+- Uses only the read-only public anon key (`SUPABASE_ANON_KEY`); database RLS policies enforce read-only SELECT access.
+- Implemented Screen 1 (Today): per-product forecast median (p50) with p10–p90 uncertainty band and multi-day forecast timeline compared against arrival counts (units & batches) for today.
+- Implemented Screen 2 (Stock): warehouse batches with product info, quantities, arrival timestamps, simulated expiry dates, estimated sell dates, and expiry risk badges.
+- Implemented Screen 3 (Live Feed): realtime WebSocket subscription to `arrival_events` updating live without reload; distinct badges and styling for `ok`, `unknown_tag`, and `duplicate` events.
+- Added Projector Mode (all three screens in command-center view), connection status indicator (`LIVE`, `CONNECTING`, `OFFLINE`) with auto-reconnection loop, and browser config modal.
+- Labeled all simulated values prominently (weights, expiry dates, demand forecasts).
+- Verified local serving via project Python venv (`python -m http.server 8000 --directory web`) and passed logic unit tests (100% success).
