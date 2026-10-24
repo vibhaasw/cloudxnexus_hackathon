@@ -7,7 +7,7 @@
 | Prompt 2: forecaster | DONE | Verified by owner, forecast upload reported working. 4 unit tests pass, dry run gives 56 rows. |
 | ESP32 station firmware | DONE | Implemented and compiled (Arduino CLI for ESP32 target). Pins changed to match physical wiring. Untested on real hardware. |
 | Owner web app | DONE | Projector-optimized static web app (Today, Stock, Live feed) with Supabase Realtime. Uses read-only public anon key. |
-| Fusion integration / replay | NOT STARTED | Priority 1 replay script, Priority 2 live call. |
+| Fusion integration / replay | IN PROGRESS | Replay script done; Fusion hook proposed (awaiting approval). |
 | Sell-date logic | NOT STARTED | Recalculation on scan / arrival. |
 | Integration check | NOT STARTED | End-to-end rehearsal. |
 | Git repository at root | DONE | Initialized on main branch, nested forecaster .git removed, pushed to GitHub: yes. |
@@ -75,3 +75,19 @@
 - Added pre-check in `forecaster.py` to verify all `product_id`s exist in the database before uploading forecasts, outputting clear guidance rather than opaque foreign key errors. Updated forecaster README.
 - Created `docs/env-vars.md` cataloging every variable, consumer, and security tier.
 - Verified all tooling with dummy values in isolated temporary directory (100% pass) and confirmed forecaster unit tests pass (4/4).
+
+### 2026-10-25: Item registration — replay script and Fusion proposal
+- Created `scripts/demo-catalog.json`: 4 seeded products × 2 placeholder tag UIDs each (8 tags total), weights match seed exactly, all marked SIMULATED.
+- Created `scripts/replay-register.mjs` with `--all`, `--product <name>`, and `--dry-run` options. Uses `env-helper.mjs` for env loading/validation. Calls `register-parcel` Edge Function with `{tag_uid, product_id}` payload. Reports success/failure visibly per tag.
+- Added `npm run register` script.
+- Dry run verified: 8 payloads printed correctly (exit 0). Single-product filter verified.
+- Live run BLOCKED: `SUPABASE_URL` in `.env` points to the Supabase dashboard URL instead of the API endpoint (`https://<ref>.supabase.co`). Script code is correct; env value needs fixing by owner.
+- Inspected Fusion scripts (`Animations.py` and `Mechanism verifier.py`). Proposed minimal hook addition — awaiting owner approval before modifying any Fusion file.
+
+### 2026-10-25: SUPABASE_URL validation fix, tag UID normalization, and registration tooling follow-up
+- Updated `scripts/env-helper.mjs` and `scripts/setup-env.mjs`: strict validation requires `https://<project-ref>.supabase.co`. When a dashboard URL (`https://supabase.com/dashboard/project/<ref>/...`) is entered or present, it extracts the project ref, offers/auto-converts to the correct API endpoint, and provides the exact fix in error messages. Tested with dummy values in temporary directory.
+- Added backend tag UID normalization in `supabase/functions/_shared/http.ts`, `register-parcel/index.ts`, and `scan/index.ts`: normalizes UIDs by trimming whitespace, stripping byte delimiters (colons, spaces, hyphens if hex-formatted), and converting to uppercase.
+- Added `--tag <UID>` override option to `scripts/replay-register.mjs` for quick re-registration of physical tags to different products between scans, maintaining dry-run support.
+- Added 'Getting the real tag UIDs' guide to `README.md` documenting serial monitor readout steps at 115200 baud and where to populate physical UIDs (`demo-catalog.json` and `OFFLINE_CATALOG[]`).
+- Fusion live hook status: remains proposed and unapplied, and is marked lower priority per instructions.
+- All registration tests conducted via dry runs and isolated dummy environments without live cloud operations.

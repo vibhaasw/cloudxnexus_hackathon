@@ -110,7 +110,39 @@ arduino-cli compile -b esp32:esp32:esp32 circuit_project
 arduino-cli upload -b esp32:esp32:esp32 -p COM3 circuit_project
 ```
 
-#### 4. Wokwi Simulator vs Real Hardware
+#### 4. Getting the real tag UIDs
+
+To read the physical UID of each RFID card or key fob using the firmware over serial:
+
+1. Connect the ESP32 to your PC via USB and open a serial monitor at **115200 baud**:
+   ```powershell
+   arduino-cli monitor -p COM3 -c baudrate=115200
+   ```
+2. Trigger the arrival sensor by briefly placing a hand or object in front of the IR sensor (GPIO 27). The serial output will log:
+   ```text
+   [TRIGGER] Arrival detected! Waiting for RFID tag...
+   ```
+3. Hold the RFID card or fob against the MFRC522 antenna within 3 seconds. The firmware reads the tag bytes, formats them as uppercase hexadecimal without separators, and prints:
+   ```text
+   [RFID] Read Tag UID: 01020304
+   ```
+   *(Even if the tag is unregistered or the backend returns `unknown_tag`, this serial line is logged immediately on card read.)*
+
+4. **Where to enter the retrieved UIDs:**
+   - **Demo Catalog (`scripts/demo-catalog.json`):** Replace the placeholder tag strings (`DEMO-CHIPS-01`, etc.) in `products[].tag_uids` with the real hex UIDs. Then run `npm run register -- --all` to register them.
+   - **Quick Single-Tag Override:** Alternatively, register any physical tag on the fly without editing the catalog file:
+     ```powershell
+     npm run register -- --product Chips --tag 01020304
+     ```
+   - **On-Device Offline Fallback Table (`circuit_project/sketch.ino`):** Update the `OFFLINE_CATALOG[]` table (lines 53–58) with your physical tag UIDs if you want offline fallback recognition when Wi-Fi is unavailable:
+     ```cpp
+     const OfflineProduct OFFLINE_CATALOG[] = {
+       { "01020304", "Chips", "Snacks", 2.000, 120 },
+       ...
+     };
+     ```
+
+#### 5. Wokwi Simulator vs Real Hardware
 
 - **Wokwi Simulator Coverage:** Can simulate RFID scans (via virtual cards), IR trigger, OLED text rendering, LED feedback, and servo sweep. Connecting to live cloud requires Wokwi IoT Gateway.
 - **Hardware Limitations (Untested):** Real physical MFRC522 RF antenna range, power supply brownouts when servo draws peak current from 5V rail, and mechanical switch contact bounce.
