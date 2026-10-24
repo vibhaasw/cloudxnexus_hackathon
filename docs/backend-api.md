@@ -68,8 +68,9 @@ An already-pending tag returns `409`; an unknown product returns `404`.
 ## Scan a tag
 
 The device uses only its limited `DEVICE_API_KEY`; it never receives the
-service key. The returned weight and expiry are explicitly simulated. The
-sell-date field stays `null` until the separate sell-date workstream is built.
+service key. The returned weight and expiry are explicitly simulated. On every scan,
+the backend triggers FIFO sell-date estimation (TRD Section 6) and returns the
+`estimated_sell_date` and `expiry_risk` flag.
 
 ```http
 POST /functions/v1/scan
@@ -95,7 +96,8 @@ Success (`200`, shortened UUIDs shown):
   "simulated_mfg_date":"<UTC-today>",
   "simulated_expiry_date":"<UTC-today plus simulated shelf life and up to 2 days variation>",
   "expiry_is_simulated":true,
-  "estimated_sell_date":null,
+  "estimated_sell_date":"<UTC-date or null if beyond horizon or unknown>",
+  "expiry_risk":false,
   "display_lines":[
     "Product: Chips",
     "Weight: 2 kg (SIMULATED)",

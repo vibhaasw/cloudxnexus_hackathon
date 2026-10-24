@@ -7,8 +7,8 @@
 | Prompt 2: forecaster | DONE | Verified by owner, forecast upload reported working. 4 unit tests pass, dry run gives 56 rows. |
 | ESP32 station firmware | DONE | Implemented and compiled (Arduino CLI for ESP32 target). Pins changed to match physical wiring. Untested on real hardware. |
 | Owner web app | DONE | Projector-optimized static web app (Today, Stock, Live feed) with Supabase Realtime. Uses read-only public anon key. |
-| Fusion integration / replay | IN PROGRESS | Replay script done; Fusion hook proposed (awaiting approval). |
-| Sell-date logic | NOT STARTED | Recalculation on scan / arrival. |
+| Fusion integration / replay | IN PROGRESS | Replay script done; Fusion hook proposed (awaiting approval, lower priority). |
+| Sell-date logic | DONE | TRD Section 6 FIFO depletion with p50 median, p10/p90 uncertainty range, and expiry risk. Recalculates on every scan. |
 | Integration check | NOT STARTED | End-to-end rehearsal. |
 | Git repository at root | DONE | Initialized on main branch, nested forecaster .git removed, pushed to GitHub: yes. |
 | Credential exposure | OPEN | circuit_project sketch cleaned; owner advised to rotate any previously exposed credentials. |
@@ -18,7 +18,7 @@
 | Product type source | UNCONFIRMED | Cloud returns product; fallback table in firmware. |
 | Units per box | UNCONFIRMED | D3 default: 40 units/box. |
 | ESP32 HTTPS approach | CONFIGURED | D4 insecure TLS flag enabled for demo. |
-| Sell-date method | NOT STARTED | TRD section 6. |
+| Sell-date method | RESOLVED | TRD section 6 method verified with hand-computed test suite (6/6 pass). |
 | Owner app hosting | RESOLVED | D6 plain static web app in `web/`; zero-dependency local run via Python venv `http.server` or any static host. |
 
 ## Log
@@ -91,3 +91,16 @@
 - Added 'Getting the real tag UIDs' guide to `README.md` documenting serial monitor readout steps at 115200 baud and where to populate physical UIDs (`demo-catalog.json` and `OFFLINE_CATALOG[]`).
 - Fusion live hook status: remains proposed and unapplied, and is marked lower priority per instructions.
 - All registration tests conducted via dry runs and isolated dummy environments without live cloud operations.
+
+### 2026-10-25: Sell-date estimation implementation (TRD Section 6)
+- Implemented FIFO sell-date depletion engine in `scripts/sell-date-calculator.mjs`: sorts product batches oldest first (`arrived_at` ASC, `id` ASC), walks forward through forecast days, depletes daily p50 demand from oldest batch first, marks outlasting batches as `'beyond_horizon'`, flags `expiry_risk = true` when sell date > simulated expiry date, computes optional p90 earliest and p10 latest dates, and marks missing forecasts gracefully as `'unknown'` without crashing.
+- Created database migration `supabase/migrations/20261025000200_sell_date_estimation.sql`:
+  - Added `status`, `range_earliest_date`, and `range_latest_date` columns to `public.sell_estimates`.
+  - Added `public.recalculate_sell_estimates(p_product_id uuid)` database procedure.
+  - Updated `public.process_scan()` to trigger `recalculate_sell_estimates(v_product.id)` on every scan arrival event and return `estimated_sell_date` and `expiry_risk` in response JSON.
+- Updated `supabase/functions/scan/index.ts` to forward `estimated_sell_date` and `expiry_risk` from `process_scan`.
+- Updated `web/js/app.js` to select `status`, `range_earliest_date`, `range_latest_date` and render estimated sell dates, uncertainty ranges, and 'Beyond horizon' / 'Unknown (no forecast)' badges.
+- Created test suite `scripts/test-sell-date.mjs` (`npm run test:sell-date`): 6/6 tests passing covering 1 batch in 3 days, 2 batches FIFO order, outlasting horizon, expiry risk true vs false, no forecast rows, and uncertainty ranges.
+- Updated `docs/backend-api.md` with sell-date and expiry risk documentation.
+- Confirmed method matches TRD section 6 and AGENTS.md D3 demo scale (40 units/box sells in ~2 to 6 days).
+- Note: Fusion live hook remains proposed and unapplied (lower priority).

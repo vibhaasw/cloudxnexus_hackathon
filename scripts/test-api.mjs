@@ -83,7 +83,10 @@ async function run() {
   assert.equal(scan.json.expiry_is_simulated, true);
   assert.ok(Array.isArray(scan.json.display_lines));
   assert.ok(scan.json.display_lines.some((line) => /SIMULATED/.test(line)));
-  assert.equal(scan.json.estimated_sell_date, null, 'sell-date work remains deferred');
+  assert.ok(
+    scan.json.estimated_sell_date === null || /^\d{4}-\d{2}-\d{2}$/.test(scan.json.estimated_sell_date),
+    'estimated_sell_date must be null (if no forecast) or YYYY-MM-DD'
+  );
   console.log('PASS register then scan (ok)');
 
   const duplicate = await invoke('scan', {

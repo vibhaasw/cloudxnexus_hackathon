@@ -7,6 +7,7 @@
   "scripts": {
     "setup": "node scripts/setup-env.mjs",
     "test:api": "node scripts/test-api.mjs",
+    "test:sell-date": "node scripts/test-sell-date.mjs",
     "seed": "node scripts/seed.mjs",
     "register": "node scripts/replay-register.mjs",
     "reset": "node scripts/reset.mjs"
