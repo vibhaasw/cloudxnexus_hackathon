@@ -1,0 +1,41 @@
+{
+  "synthetic_data": true,
+  "data_label": "SYNTHETIC / SIMULATED DEMAND — NOT REAL SALES OR ARRIVALS",
+  "history_days": 1461,
+  "seed": 42,
+  "units_per_box": 40,
+  "products": [
+    {
+      "product_id": "00000000-0000-4000-8000-000000000001",
+      "name": "Chips",
+      "category": "Snacks",
+      "weight_kg": 2.0,
+      "shelf_life_days": 120,
+      "base_daily_units": 12
+    },
+    {
+      "product_id": "00000000-0000-4000-8000-000000000002",
+      "name": "Green Tea",
+      "category": "Beverages",
+      "weight_kg": 1.25,
+      "shelf_life_days": 365,
+      "base_daily_units": 8
+    },
+    {
+      "product_id": "00000000-0000-4000-8000-000000000003",
+      "name": "Pasta",
+      "category": "Pantry",
+      "weight_kg": 0.75,
+      "shelf_life_days": 540,
+      "base_daily_units": 14
+    },
+    {
+      "product_id": "00000000-0000-4000-8000-000000000004",
+      "name": "Coffee",
+      "category": "Beverages",
+      "weight_kg": 3.5,
+      "shelf_life_days": 240,
+      "base_daily_units": 18
+    }
+  ]
+}
