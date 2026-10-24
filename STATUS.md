@@ -64,3 +64,14 @@
 - Added Projector Mode (all three screens in command-center view), connection status indicator (`LIVE`, `CONNECTING`, `OFFLINE`) with auto-reconnection loop, and browser config modal.
 - Labeled all simulated values prominently (weights, expiry dates, demand forecasts).
 - Verified local serving via project Python venv (`python -m http.server 8000 --directory web`) and passed logic unit tests (100% success).
+
+### 2026-10-25: Developer setup tooling & environment automation
+- Added `scripts/setup-env.mjs` and `npm run setup`: creates `.env` from template, generates 32-byte crypto keys for `DEVICE_API_KEY` and `REGISTER_API_KEY` without overwriting existing settings, sets default `UNITS_PER_BOX=40`, prompts with masked input for URL and keys, enforces `.gitignore`, and outputs exact Supabase CLI command for function secrets without printing secret values. Added `--rotate-app-keys` with confirmation.
+- Added shared validation in `scripts/env-helper.mjs`: loads root `.env` automatically via Node 24 built-in `process.loadEnvFile()`, reports all missing/malformed variables in one consolidated block with exact fixes before any network calls, and supports both modern (`sb_publishable_` / `sb_secret_`) and legacy keys.
+- Fixed key headers across all scripts and loader: removed `Authorization: Bearer` headers (new keys are not JWTs and PostgREST expects `apikey` only).
+- Updated Edge Function `createAdminClient` in `supabase/functions/_shared/http.ts` to support modern `SUPABASE_SECRET_KEYS` (JSON) and `SUPABASE_SECRET_KEY` alongside `SUPABASE_SERVICE_ROLE_KEY`.
+- Added `scripts/seed.mjs` (`npm run seed`): idempotent product upsert through PostgREST REST API using `products.json` as single source of truth.
+- Added `scripts/reset.mjs` (`npm run reset`): replaces `reset-demo.sh` with Node implementation that refuses to execute without explicit `--confirm` flag.
+- Added pre-check in `forecaster.py` to verify all `product_id`s exist in the database before uploading forecasts, outputting clear guidance rather than opaque foreign key errors. Updated forecaster README.
+- Created `docs/env-vars.md` cataloging every variable, consumer, and security tier.
+- Verified all tooling with dummy values in isolated temporary directory (100% pass) and confirmed forecaster unit tests pass (4/4).
