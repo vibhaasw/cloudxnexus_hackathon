@@ -4,6 +4,7 @@ import {
   isOptions,
   jsonResponse,
   methodNotAllowed,
+  normalizeTagUid,
   readJson,
   validIdentifier,
 } from "../_shared/http.ts";
@@ -45,9 +46,10 @@ Deno.serve(async (request: Request) => {
 
   try {
     const supabase = createAdminClient();
+    const normalizedTag = normalizeTagUid(tagUid);
     const { data, error } = await supabase.rpc("process_scan", {
       p_device_id: deviceId.trim(),
-      p_tag_uid: tagUid.trim(),
+      p_tag_uid: normalizedTag,
       p_quantity: quantity,
     });
 

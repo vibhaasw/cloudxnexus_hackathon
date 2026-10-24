@@ -4,6 +4,7 @@ import {
   isOptions,
   jsonResponse,
   methodNotAllowed,
+  normalizeTagUid,
   readJson,
   validIdentifier,
 } from "../_shared/http.ts";
@@ -73,8 +74,9 @@ Deno.serve(async (request: Request) => {
       return jsonResponse({ error: "product not found" }, 404);
     }
 
+    const normalizedTag = normalizeTagUid(tagUid);
     const { data, error } = await supabase.from("pending_parcels").insert({
-      tag_uid: tagUid.trim(),
+      tag_uid: normalizedTag,
       product_id: product.id,
       weight_kg: product.weight_kg,
     }).select("id").single();

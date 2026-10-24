@@ -141,3 +141,19 @@ export function validIdentifier(
   return typeof value === "string" && value.trim().length > 0 &&
     value.length <= maxLength;
 }
+
+/**
+ * Normalizes a tag UID:
+ * - Trims leading and trailing whitespace.
+ * - Strips byte delimiters (colons, spaces, hyphens) if formatted as hex pairs
+ *   (e.g., "01:02:03:04", "01 02 03 04", "01-02-03-04" -> "01020304").
+ * - Converts to uppercase so hardware RFID reads and catalog entries match consistently.
+ */
+export function normalizeTagUid(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  let tag = raw.trim();
+  if (/^([0-9a-fA-F]{2}[:\s-])+[0-9a-fA-F]{2}$/.test(tag)) {
+    tag = tag.replace(/[:\s-]/g, "");
+  }
+  return tag.toUpperCase();
+}
