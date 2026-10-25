@@ -1,6 +1,6 @@
-# Smart Warehouse IoT — Owner Web App
+# Smart Warehouse IoT — Unified Owner Web App
 
-A lightweight, projector-optimized, static web dashboard for warehouse operations. Uses **only the read-only public Supabase anon key** and Supabase Realtime WebSocket subscriptions.
+A lightweight, modern, projector-optimized static web dashboard for warehouse operations. It blends the teammate's frontend design tokens (Bricolage Grotesque typography, Instrument Sans, gliding pill navigation, dark/light theme, conveyor belt simulation, and count-up animations) with our Supabase Realtime data layer (Postgres + Edge Functions + Realtime).
 
 > [!WARNING]
 > **SIMULATED VALUES NOTICE (TRD Rule 6):**
@@ -10,33 +10,44 @@ A lightweight, projector-optimized, static web dashboard for warehouse operation
 
 ## Features & Screens
 
-1. **Screen 1: Today (Forecast vs Arrived):**
-   - For each catalog product (Chips, Green Tea, Pasta, Coffee), displays today's arrived count (`units` and `batches`).
-   - Compares against today's forecast median (`p50`) and uncertainty band (`p10` to `p90`) marked as `(SIMULATED DEMAND)`.
-   - Multi-day forecast horizon timeline showing upcoming daily demand.
+1. **Today:**
+   - Animated headline: `X of Y parcels have arrived today`, with remaining count based on aggregate AI forecasts.
+   - **Conveyor Belt Track:** Visual representation of today's parcels colored by sorting lane (Blue for Left `<10 kg`, Gold for Right `≥10 kg`, Grey for pending expected). Features live arrival drive motion and block pop animations.
+   - **Stat Cards:** Real-time counts for Left lane, Right lane, and batches at risk of expiring before selling (with attention shake).
+   - **Needs your attention:** Urgent stock batch cards alerting if simulated expiry precedes projected sell date.
+   - **Product Breakdown:** Catalog products showing today's arrived count (`units` & `batches`) compared with forecast median (`p50`) and uncertainty band (`p10`–`p90`) marked `(SIMULATED DEMAND)`, with a 4-day upcoming horizon timeline.
+   - **How sorting works & Comparison guide:** Overview of hardware-backed RFID/IR verification vs typical inventory websites.
+   - **Simulate parcel demo button:** Labeled `SAMPLE DATA (Local Demo)` to demonstrate belt animations and toast alerts without modifying cloud data.
 
-2. **Screen 2: Stock (Warehouse Batches & Expiry Risk):**
-   - Displays all active inventory batches with Product, Tag UID, Quantity (units), Arrival Timestamp, and Simulated Expiry Date (`SIMULATED`).
-   - Shows Estimated Sell Date and Expiry Risk status (`HIGH RISK` vs `On Track` vs `Pending Calc`).
+2. **Stock & Parcels:**
+   - Real-time search box filterable by product name, category, or RFID tag UID.
+   - Filter chips: `All`, `Left Lane (<10 kg)`, `Right Lane (≥10 kg)`, and `At Risk`.
+   - Dual view toggle: Teammate's **Card View** (with lane tags, risk badges, weights, simulated expiry dates, estimated sell dates) and **Full Operations Table** view.
 
-3. **Screen 3: Live Feed (Realtime Scans):**
-   - Realtime arrival events updating instantly via WebSocket without page reload.
-   - Distinct badges and color themes:
-     - `OK / ARRIVED` (Green)
-     - `UNKNOWN TAG` (Red — unregistered tags logged for diagnostics)
-     - `DUPLICATE` (Amber — cooldown protection; repeat scans within 10s ignored)
-   - Filterable by event type.
+3. **Forecast:**
+   - 7-Day interactive bar chart with SVG trend line across bar tops.
+   - Busiest day highlighted in gold, today highlighted in blue, with hover tooltips.
+   - Aggregated directly from `public.forecasts` daily totals across catalog products.
 
-4. **Projector Mode (All Screens):**
-   - High-contrast, large-type layout optimized for conference room or stage projectors.
-   - Realtime connection indicator showing `LIVE (Realtime Active)`, `CONNECTING...`, or `OFFLINE` with automatic retry logic.
+4. **Live Feed:**
+   - Realtime scan events from ESP32 stations via Supabase Realtime channel.
+   - Distinct badges and color themes: `OK / ARRIVED` (Green), `UNKNOWN TAG` (Red), `DUPLICATE` (Amber cooldown).
+   - Flashes on incoming arrival events with relative timestamps.
+
+5. **Projector Mode:**
+   - High-contrast, large-type multi-panel presentation layout ideal for conference rooms and live demo review.
+
+6. **Connection Indicator & Settings:**
+   - Header connection indicator showing `LIVE (REALTIME)`, `CONNECTING...`, or `OFFLINE` with automatic retry logic.
+   - In-app **⚙ Config** modal to set `SUPABASE_URL` and `SUPABASE_ANON_KEY` stored in `localStorage`.
+   - Theme toggle (☀️ / 🌙) switching between light and dark modes.
 
 ---
 
 ## Configuration
 
 The web app requires two read-only parameters:
-1. `SUPABASE_URL` (e.g. `https://xyzcompany.supabase.co` or `http://127.0.0.1:54321`)
+1. `SUPABASE_URL` (e.g. `https://xyzcompany.supabase.co`)
 2. `SUPABASE_ANON_KEY` (public read-only anonymous key)
 
 > [!CAUTION]
@@ -77,8 +88,9 @@ Then open `http://localhost:8000` in any web browser.
 
 ---
 
-## Static Hosting (Hosting-Agnostic, TRD D6)
+## Testing
 
-Because the app is composed purely of standard static HTML5, CSS3, and JavaScript:
-- It can be deployed to any static host: GitHub Pages, Cloudflare Pages, Netlify, Vercel, AWS S3, or Supabase Storage.
-- No Node build step, compilation, or server-side runtime is needed.
+Run the fixture-based unit test suite:
+```powershell
+& "C:\Program Files\nodejs\node.exe" --test web/tests/app-logic.test.mjs
+```

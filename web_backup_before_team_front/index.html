@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Warehouse IoT — Owner Operations Dashboard</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="theme-dark projector-readable">
+
+  <!-- Top Simulation Warning Banner (TRD Hard Rule 6) -->
+  <aside class="sim-banner" role="alert">
+    <div class="banner-content">
+      <span class="banner-badge">⚠️ SIMULATED DEMO DATA</span>
+      <span class="banner-text">Conveyor, parcel weights, expiry dates, and demand forecasts are <strong>SIMULATED</strong> for hackathon demonstration. Expiry dates are not food-safety advice.</span>
+    </div>
+  </aside>
+
+  <!-- Application Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-group">
+        <span class="logo-icon">📦</span>
+        <div>
+          <h1 class="app-title">SMART WAREHOUSE IoT</h1>
+          <p class="app-subtitle">Owner Operations Dashboard & Realtime Monitoring</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Realtime Connection Indicator (TRD Section 10) -->
+    <div class="header-right">
+      <div id="connectionStatus" class="connection-indicator status-connecting" title="Supabase Realtime Status">
+        <span class="status-dot"></span>
+        <span id="connectionText" class="status-label">INITIALIZING...</span>
+      </div>
+      <button id="btnRefresh" class="btn btn-secondary btn-icon" title="Force Refresh Data">
+        <span class="icon">↻</span> Refresh
+      </button>
+      <button id="btnSettings" class="btn btn-secondary btn-icon" title="Configure Supabase Connection">
+        <span class="icon">⚙</span> Config
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigation Bar / Screen Switcher -->
+  <nav class="nav-bar" aria-label="Dashboard Screens">
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-screen="screen-all">
+        <span class="tab-num">★</span> All Screens (Projector Mode)
+      </button>
+      <button class="nav-tab" data-screen="screen-today">
+        <span class="tab-num">1</span> Today (Forecast vs Arrived)
+      </button>
+      <button class="nav-tab" data-screen="screen-stock">
+        <span class="tab-num">2</span> Current Stock
+      </button>
+      <button class="nav-tab" data-screen="screen-feed">
+        <span class="tab-num">3</span> Live Feed
+        <span id="feedUnreadBadge" class="badge-count hidden">0</span>
+      </button>
+    </div>
+    <div class="last-sync-time">
+      Last synced: <span id="lastSyncLabel">Never</span>
+    </div>
+  </nav>
+
+  <!-- Main Content Layout -->
+  <main class="dashboard-container">
+
+    <!-- ═════════════════════════════════════════════════════════════ -->
+    <!-- SCREEN 1: TODAY (Forecast vs Arrived)                          -->
+    <!-- ═════════════════════════════════════════════════════════════ -->
+    <section id="screen-today" class="screen-view">
+      <div class="screen-header">
+        <div>
+          <h2 class="screen-title">1. Today's Arrival vs Forecast</h2>
+          <p class="screen-desc">Per-product daily forecast median with p10–p90 uncertainty band compared against parcels arrived today.</p>
+        </div>
+        <div class="header-stats">
+          <div class="stat-pill">
+            <span class="stat-lbl">Total Arrived Today:</span>
+            <span id="statTodayTotalUnits" class="stat-val highlight-green">0 units</span>
+            <span id="statTodayTotalBatches" class="stat-sub">(0 batches)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Products Grid -->
+      <div id="todayProductsGrid" class="cards-grid">
+        <div class="loading-placeholder">Loading today's product forecasts and arrivals...</div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════════════ -->
+    <!-- SCREEN 2: CURRENT STOCK                                        -->
+    <!-- ═════════════════════════════════════════════════════════════ -->
+    <section id="screen-stock" class="screen-view">
+      <div class="screen-header">
+        <div>
+          <h2 class="screen-title">2. Current Warehouse Stock</h2>
+          <p class="screen-desc">Authoritative inventory batches with arrival timestamp, simulated expiry, estimated sell date, and risk analysis.</p>
+        </div>
+        <div class="header-stats">
+          <div class="stat-pill">
+            <span class="stat-lbl">Active Batches:</span>
+            <span id="statStockBatches" class="stat-val">0</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-lbl">Total Units:</span>
+            <span id="statStockUnits" class="stat-val highlight-blue">0</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-lbl">Expiry Risk:</span>
+            <span id="statStockRisk" class="stat-val highlight-amber">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stock Table Container -->
+      <div class="table-card">
+        <div class="table-responsive">
+          <table class="data-table" id="stockTable">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Tag UID</th>
+                <th>Quantity</th>
+                <th>Arrived At</th>
+                <th>Simulated Expiry</th>
+                <th>Est. Sell Date</th>
+                <th>Expiry Risk Status</th>
+              </tr>
+            </thead>
+            <tbody id="stockTableBody">
+              <tr>
+                <td colspan="7" class="empty-state">Loading warehouse stock batches...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════════════ -->
+    <!-- SCREEN 3: LIVE FEED                                            -->
+    <!-- ═════════════════════════════════════════════════════════════ -->
+    <section id="screen-feed" class="screen-view">
+      <div class="screen-header">
+        <div>
+          <h2 class="screen-title">3. Realtime Arrival Feed</h2>
+          <p class="screen-desc">Live scan events updating in realtime without page reload. OK, Unknown Tag, and Duplicate attempts shown distinctly.</p>
+        </div>
+        <div class="feed-filters">
+          <button class="filter-chip active" data-filter="all">All Events (<span id="countFeedAll">0</span>)</button>
+          <button class="filter-chip chip-ok" data-filter="ok">OK (<span id="countFeedOk">0</span>)</button>
+          <button class="filter-chip chip-unknown" data-filter="unknown_tag">Unknown Tag (<span id="countFeedUnknown">0</span>)</button>
+          <button class="filter-chip chip-duplicate" data-filter="duplicate">Duplicate (<span id="countFeedDuplicate">0</span>)</button>
+        </div>
+      </div>
+
+      <!-- Live Events Stream -->
+      <div id="liveFeedContainer" class="feed-list">
+        <div class="empty-state">
+          <span class="empty-icon">📡</span>
+          <h3>Waiting for Arrival Events</h3>
+          <p>Scan a tag at the ESP32 station or run the backend test script to view live incoming arrival events.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Configuration Modal -->
+  <div id="settingsModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Supabase Read-Only Configuration</h3>
+        <button id="btnCloseSettings" class="btn-close" aria-label="Close Modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-info">
+          Enter the read-only public parameters for your Supabase backend. These are stored locally in your browser.
+          <strong class="warn-highlight">Never enter the service_role key here.</strong>
+        </p>
+
+        <div class="form-group">
+          <label for="cfgSupabaseUrl">Supabase Project URL:</label>
+          <input type="text" id="cfgSupabaseUrl" class="form-input" placeholder="https://xyzcompany.supabase.co or http://127.0.0.1:54321">
+        </div>
+
+        <div class="form-group">
+          <label for="cfgAnonKey">Supabase Public Anon Key:</label>
+          <textarea id="cfgAnonKey" class="form-input form-textarea" rows="3" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."></textarea>
+        </div>
+
+        <div class="config-actions">
+          <button id="btnSaveConfig" class="btn btn-primary">Save & Connect</button>
+          <button id="btnResetConfig" class="btn btn-danger">Reset to Defaults</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load Config (git-ignored local config if present) -->
+  <script src="config.js" onerror="console.info('No local config.js found; checking localStorage/defaults.')"></script>
+
+  <!-- Load Supabase JS Client (UMD bundle with integrity fallback) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+  <!-- Main Web App Script -->
+  <script src="js/app.js"></script>
+</body>
+</html>

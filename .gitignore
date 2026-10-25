@@ -32,6 +32,7 @@ node_modules/
 .pio/
 build/
 circuit_project/libraries/
+circuit_project/sketch/
 
 # ── Logs & Scratch ───────────────────────────────────────────
 *.log

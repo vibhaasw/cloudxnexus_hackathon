@@ -127,3 +127,39 @@
 - Without `Authorization: Bearer`, PostgREST defaulted requests to the unauthenticated `anon` role, which has only `SELECT` privileges and cannot `INSERT` into `public.products` or `public.forecasts`.
 - Re-ran `scripts/seed.mjs`: successfully seeded all 4 demo products (Chips, Green Tea, Pasta, Coffee) into the database (exit 0).
 - Ran `demand-forecasting-uq/main.py --horizon 14`: successfully upserted 56 forecast rows across 14 days to Supabase in 1.66s. All tests passing.
+
+### 2026-10-25: Supabase Edge Functions deployment & live hardware tag registration
+- Fixed `HTTP 404: Requested function was not found` during ESP32 scan call:
+  - Deployed `scan`, `register-parcel`, and `health` Edge Functions to Supabase via `supabase functions deploy --no-verify-jwt`.
+  - Set function secrets (`DEVICE_API_KEY`, `REGISTER_API_KEY`, `UNITS_PER_BOX`) via `supabase secrets set --env-file .env`.
+- Verified live Edge Function contract with `node scripts/test-api.mjs`: all 6 integration tests passing (`PASS health`, `PASS key scope`, `PASS register then scan`, `PASS duplicate scan`, `PASS unknown tag`, `PASS read-only public access`).
+- Pre-registered user's physical RFID tag (`0AEFF505`) as a pending parcel for **Chips** (2.0 kg simulated) in `scripts/demo-catalog.json` and executed live registration via `scripts/replay-register.mjs`.
+- The ESP32 scan station is now fully unblocked to scan physical tag `0AEFF505` with live cloud confirmation.
+
+### 2026-10-25: Owner App Unified Frontend & Teammate Design Merge
+- Backed up previous web application to `web_backup_before_team_front/`.
+- Performed read-only audit of `team_front/` React app: React 19 + Vite, 100% client-side mock data in `src/data/mock.js`, zero Supabase dependencies, zero environment variables or secrets.
+- Converted teammate's frontend layout, visual design tokens (`--bg`, `--surface`, `--blue`, `--gold`, `--risk`, `--ok`), Bricolage Grotesque / Instrument Sans typography, and components into a high-performance, dependency-free static web application living directly in `web/`.
+- Preserved all required features from both sides:
+  - **Today View**: Animated headline with arrival progress, real-time conveyor belt block slots with live arrival drive motion and pop animations, stat cards (Went Left, Went Right, Expiry Risk with shake animation), Urgent Stock cards alerting on batches at risk of expiring before selling, product-level demand breakdown with p50 forecast & p10–p90 bands, 4-day horizon timeline, and local sample simulation button.
+  - **Parcels / Stock View**: Search box (product name, category, tag UID), filter chips (`All`, `Left`, `Right`, `At risk`), dual view switch between Card View and Full Operations Table, handling all sell estimate states (`ok`, `beyond_horizon`, `unknown`, `pending`).
+  - **Forecast View**: Teammate's 7-Day bar chart with SVG trend line across bar tops, busiest day in gold, today in blue, tooltips, connected to aggregated daily demand from `public.forecasts`.
+  - **Live Feed View**: Real-time arrival event stream (OK in green, Unknown Tag in red, Duplicate in gold) with relative timestamps and flash animation.
+  - **Projector Mode**: Side-by-side presentation layout for live hackathon judge reviews.
+  - **Header & Navigation**: Desktop header with sliding pill indicator, mobile bottom tab bar, live connection status indicator (`● LIVE (REALTIME)`, `CONNECTING...`, `OFFLINE`), refresh button, settings modal for URL and anon key (`localStorage` persistence), and light/dark theme toggle.
+- Enforced TRD Rule 6: visible `SIMULATED` labels on all parcel weights, simulated expiry dates, and demand forecasts.
+- Verified test suite: 6/6 unit tests passing in `web/tests/app-logic.test.mjs` verifying lane classification, expiry risk detection, search/filter algorithms, and null-safety.
+- Local run command remains valid: `& "demand-forecasting-uq\.venv\Scripts\python.exe" -m http.server 8000 --directory web`.
+- Restored complete Landing Page & Insights front door (`panel-home`):
+  - Sticky `LandingNav` with smooth scrolling links (`#mini-belt`, `#how-it-works`, `#why-us`, `#who-its-for`, `#team`, `#faq`) and responsive mobile drawer.
+  - Interactive `Hero` section with cycling live feed typewriter terminal and direct navigation quick cards.
+  - Capability chips infinite marquee `Strip`.
+  - Live 2D physics canvas `MiniBelt` with boxes dropping, infrared laser gate flash detection, weight routing to Left (<10 kg) and Right (≥10 kg) bins, live counters, and user drop interaction.
+  - `WhyUs` comparison table (6 manual vs smart automation topics).
+  - `WhoItsFor` audience tabs (Small shops, Distributors, Food and grocery, Pharmacies) with 3 benefit cards each.
+  - `HowItWorks` 4-step workflow cards and `DashboardPreview` mock browser frame.
+  - `TeamAndTech` section for Team Hyxon and technology stack chips.
+  - `Faq` interactive accordion and `Footer`.
+  - Added `Overview` tab to desktop and mobile navigation bars for seamless switching between the marketing front door and live warehouse operations.
+
+

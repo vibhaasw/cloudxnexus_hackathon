@@ -1,0 +1,102 @@
+/* Colours: edit this group to update the light theme across the app. */
+:root {
+  --bg: #F1F3EF;
+  --surface: #FFFFFF;
+  --ink: #1B2420;
+  --muted: #5E6B64;
+  --line: #DCE1DB;
+  --blue: #2547D0;
+  --gold: #F2A900;
+  --risk: #C9301F;
+  --ok: #1C7C4A;
+  --blue-light: #E8EDFF;
+  --gold-light: #FFF5DD;
+  --risk-light: #FDECEA;
+  --ok-light: #E6F5ED;
+}
+
+/* Spacing and layout: change these to make the page roomier or tighter. */
+:root {
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --radius: 16px;
+  --max-w: 1040px;
+}
+
+/* Motion tokens: EDIT HERE to speed up or slow down the shared animations. */
+:root {
+  --ease-out: cubic-bezier(.22,1,.36,1);
+  --ease-spring: cubic-bezier(.34,1.56,.64,1);
+  --t-fast: 150ms;
+  --t-base: 300ms;
+  --t-slow: 600ms;
+}
+
+/* Typefaces used for headings and everyday reading. */
+:root {
+  --font-heading: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-body: 'Instrument Sans', system-ui, sans-serif;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101613;
+    --surface: #19211D;
+    --ink: #EEF2EE;
+    --muted: #A9B3AE;
+    --line: #35403A;
+    --blue: #8EA4FF;
+    --gold: #FFC733;
+    --risk: #FF8070;
+    --ok: #5AE09A;
+    --blue-light: #1C2440;
+    --gold-light: #332A11;
+    --risk-light: #3A1510;
+    --ok-light: #0C2E1C;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #101613;
+  --surface: #19211D;
+  --ink: #EEF2EE;
+  --muted: #A9B3AE;
+  --line: #35403A;
+  --blue: #8EA4FF;
+  --gold: #FFC733;
+  --risk: #FF8070;
+  --ok: #5AE09A;
+  --blue-light: #1C2440;
+  --gold-light: #332A11;
+  --risk-light: #3A1510;
+  --ok-light: #0C2E1C;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { min-width: 320px; scroll-behavior: smooth; }
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 17px/1.55 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+button, input { color: inherit; font: inherit; }
+button { cursor: pointer; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+img, svg { display: block; max-width: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}

@@ -111,13 +111,15 @@ async function run() {
   assert.equal(repeatedUnknown.json.result, 'duplicate', 'repeat unknown scan is cooldown duplicate');
   console.log('PASS unknown tag and repeat cooldown');
 
-  const batches = await readRows('batches', { tag_uid: `eq.${tag}` });
+  const normTag = tag.toUpperCase();
+  const normUnknown = unknownTag.toUpperCase();
+  const batches = await readRows('batches', { tag_uid: `eq.${normTag}` });
   assert.equal(batches.length, 1, 'exactly one batch after duplicate retry');
   assert.equal(batches[0].quantity, 40);
-  const events = await readRows('arrival_events', { tag_uid: `eq.${tag}` });
+  const events = await readRows('arrival_events', { tag_uid: `eq.${normTag}` });
   assert.equal(events.length, 1, 'duplicate retry creates no event');
   assert.equal(events[0].result, 'ok');
-  const unknownEvents = await readRows('arrival_events', { tag_uid: `eq.${unknownTag}` });
+  const unknownEvents = await readRows('arrival_events', { tag_uid: `eq.${normUnknown}` });
   assert.equal(unknownEvents.length, 1, 'unknown scan is logged');
   assert.equal(unknownEvents[0].result, 'unknown_tag');
   console.log('PASS read-only public access and no duplicate writes');

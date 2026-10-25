@@ -3,215 +3,999 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smart Warehouse IoT — Owner Operations Dashboard</title>
+  <title>Smart Warehouse · Every parcel, accounted for.</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/landing.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="theme-dark projector-readable">
+<body>
 
   <!-- Top Simulation Warning Banner (TRD Hard Rule 6) -->
   <aside class="sim-banner" role="alert">
-    <div class="banner-content">
-      <span class="banner-badge">⚠️ SIMULATED DEMO DATA</span>
-      <span class="banner-text">Conveyor, parcel weights, expiry dates, and demand forecasts are <strong>SIMULATED</strong> for hackathon demonstration. Expiry dates are not food-safety advice.</span>
-    </div>
+    <span class="banner-badge">⚠️ SIMULATED DEMO DATA</span>
+    <span>Conveyor, parcel weights, expiry dates, and demand forecasts are <strong>SIMULATED</strong> for hackathon demonstration. Expiry dates are not food-safety advice.</span>
   </aside>
 
-  <!-- Application Header -->
-  <header class="app-header">
-    <div class="header-left">
-      <div class="logo-group">
-        <span class="logo-icon">📦</span>
-        <div>
-          <h1 class="app-title">SMART WAREHOUSE IoT</h1>
-          <p class="app-subtitle">Owner Operations Dashboard & Realtime Monitoring</p>
-        </div>
-      </div>
-    </div>
+  <!-- Application Header (Shown across Dashboard & persistent controls) -->
+  <header class="site-header" id="siteHeader">
+    <div class="header-inner">
+      <a class="header-brand" href="#home" id="brandLogo" title="Smart Warehouse">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+        <span>Smart Warehouse</span>
+      </a>
 
-    <!-- Live Realtime Connection Indicator (TRD Section 10) -->
-    <div class="header-right">
-      <div id="connectionStatus" class="connection-indicator status-connecting" title="Supabase Realtime Status">
-        <span class="status-dot"></span>
-        <span id="connectionText" class="status-label">INITIALIZING...</span>
+      <!-- Desktop Tabs Navigation (Includes Overview / Home) -->
+      <nav class="main-nav main-nav--desktop" aria-label="Dashboard Desktop Navigation">
+        <ul class="nav-list" id="desktopNavList" style="max-width: 680px;">
+          <li class="nav-pill" id="desktopNavPill" aria-hidden="true" style="width: calc(100% / 6);"></li>
+          <li><button class="nav-tab" type="button" data-tab="home" aria-current="page">Overview</button></li>
+          <li><button class="nav-tab" type="button" data-tab="today">Today</button></li>
+          <li><button class="nav-tab" type="button" data-tab="parcels">Stock &amp; Parcels</button></li>
+          <li><button class="nav-tab" type="button" data-tab="forecast">Forecast</button></li>
+          <li><button class="nav-tab" type="button" data-tab="feed">Live Feed</button></li>
+          <li><button class="nav-tab" type="button" data-tab="projector">Projector</button></li>
+        </ul>
+      </nav>
+
+      <!-- Header Actions -->
+      <div class="header-actions">
+        <!-- Live Realtime Connection Indicator -->
+        <div id="connectionStatus" class="conn-indicator conn--connecting" title="Supabase Realtime Status">
+          <span class="conn-dot"></span>
+          <span id="connectionText" class="conn-text">INITIALIZING...</span>
+        </div>
+
+        <!-- Refresh Button -->
+        <button id="btnRefresh" class="btn-icon" title="Force Refresh Data" type="button">
+          <span aria-hidden="true">↻</span>
+        </button>
+
+        <!-- Config Modal Button -->
+        <button id="btnSettings" class="btn-icon" title="Configure Supabase Connection" type="button">
+          <span aria-hidden="true">⚙</span>
+        </button>
+
+        <!-- Theme Toggle (☀️ / 🌙) -->
+        <button id="btnThemeToggle" class="theme-toggle" type="button" aria-label="Toggle colour theme">
+          <span id="themeToggleIcon" aria-hidden="true">🌙</span>
+        </button>
       </div>
-      <button id="btnRefresh" class="btn btn-secondary btn-icon" title="Force Refresh Data">
-        <span class="icon">↻</span> Refresh
-      </button>
-      <button id="btnSettings" class="btn btn-secondary btn-icon" title="Configure Supabase Connection">
-        <span class="icon">⚙</span> Config
-      </button>
     </div>
   </header>
 
-  <!-- Navigation Bar / Screen Switcher -->
-  <nav class="nav-bar" aria-label="Dashboard Screens">
-    <div class="nav-tabs">
-      <button class="nav-tab active" data-screen="screen-all">
-        <span class="tab-num">★</span> All Screens (Projector Mode)
-      </button>
-      <button class="nav-tab" data-screen="screen-today">
-        <span class="tab-num">1</span> Today (Forecast vs Arrived)
-      </button>
-      <button class="nav-tab" data-screen="screen-stock">
-        <span class="tab-num">2</span> Current Stock
-      </button>
-      <button class="nav-tab" data-screen="screen-feed">
-        <span class="tab-num">3</span> Live Feed
-        <span id="feedUnreadBadge" class="badge-count hidden">0</span>
-      </button>
-    </div>
-    <div class="last-sync-time">
-      Last synced: <span id="lastSyncLabel">Never</span>
-    </div>
+  <!-- Mobile Bottom Navigation Bar -->
+  <nav class="main-nav main-nav--mobile" aria-label="Dashboard Mobile Navigation">
+    <ul class="nav-list" id="mobileNavList">
+      <li class="nav-pill" id="mobileNavPill" aria-hidden="true" style="width: calc(100% / 6);"></li>
+      <li><button class="nav-tab" type="button" data-tab="home" aria-current="page">Home</button></li>
+      <li><button class="nav-tab" type="button" data-tab="today">Today</button></li>
+      <li><button class="nav-tab" type="button" data-tab="parcels">Parcels</button></li>
+      <li><button class="nav-tab" type="button" data-tab="forecast">Forecast</button></li>
+      <li><button class="nav-tab" type="button" data-tab="feed">Feed</button></li>
+      <li><button class="nav-tab" type="button" data-tab="projector">Projector</button></li>
+    </ul>
   </nav>
 
-  <!-- Main Content Layout -->
-  <main class="dashboard-container">
+  <!-- Main Content Wrap -->
+  <main class="page-content" style="padding-bottom: 60px;">
 
-    <!-- ═════════════════════════════════════════════════════════════ -->
-    <!-- SCREEN 1: TODAY (Forecast vs Arrived)                          -->
-    <!-- ═════════════════════════════════════════════════════════════ -->
-    <section id="screen-today" class="screen-view">
-      <div class="screen-header">
-        <div>
-          <h2 class="screen-title">1. Today's Arrival vs Forecast</h2>
-          <p class="screen-desc">Per-product daily forecast median with p10–p90 uncertainty band compared against parcels arrived today.</p>
-        </div>
-        <div class="header-stats">
-          <div class="stat-pill">
-            <span class="stat-lbl">Total Arrived Today:</span>
-            <span id="statTodayTotalUnits" class="stat-val highlight-green">0 units</span>
-            <span id="statTodayTotalBatches" class="stat-sub">(0 batches)</span>
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 0: LANDING PAGE & INSIGHTS (Teammate's complete front door) -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section id="panel-home" class="tab-panel" aria-label="Overview and Landing Page">
+      <div class="landing-root">
+
+        <!-- 1. Sticky Landing Nav -->
+        <div class="landing-nav-wrap" id="landingNavWrap">
+          <div class="landing-container">
+            <header class="landing-nav" role="banner">
+              <a href="#home" class="landing-logo" id="landingLogoHome">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                <span>Smart Warehouse</span>
+              </a>
+
+              <nav class="landing-nav-links" aria-label="Main Landing Navigation">
+                <div class="nav-dropdown-wrap">
+                  <button type="button" class="landing-nav-link" id="btnProductDropdown">
+                    <span>Product</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </button>
+                  <div class="nav-dropdown-menu" id="productDropdownMenu">
+                    <a href="#mini-belt" class="nav-dropdown-item">
+                      <span class="item-icon">⚖️</span>
+                      <span>Sorting Belt</span>
+                    </a>
+                    <a href="#why-us" class="nav-dropdown-item">
+                      <span class="item-icon">⚠️</span>
+                      <span>Expiry alerts</span>
+                    </a>
+                    <a href="#preview" class="nav-dropdown-item">
+                      <span class="item-icon">📈</span>
+                      <span>Demand Forecast</span>
+                    </a>
+                  </div>
+                </div>
+
+                <a href="#how-it-works" class="landing-nav-link">How it works</a>
+                <a href="#why-us" class="landing-nav-link">Why us</a>
+                <a href="#who-its-for" class="landing-nav-link">Who it's for</a>
+                <button type="button" class="landing-nav-link has-dot" id="btnLandingNavDashboard">Dashboard</button>
+                <a href="#faq" class="landing-nav-link">FAQ</a>
+              </nav>
+
+              <div class="landing-nav-actions">
+                <a href="#team" class="team-nav-link">Team</a>
+                <button type="button" class="btn-orange" id="btnLandingOpenDashboard">Open dashboard</button>
+                <button type="button" class="mobile-hamburger-btn" id="btnMobileHamburger">☰</button>
+              </div>
+            </header>
+          </div>
+
+          <!-- Mobile Drawer -->
+          <div class="mobile-menu-drawer" id="mobileDrawer" style="display: none;">
+            <a href="#mini-belt" class="mobile-nav-link">Product &amp; Sorting</a>
+            <a href="#how-it-works" class="mobile-nav-link">How it works</a>
+            <a href="#why-us" class="mobile-nav-link">Why us</a>
+            <a href="#who-its-for" class="mobile-nav-link">Who it's for</a>
+            <a href="#team" class="mobile-nav-link">Team</a>
+            <a href="#faq" class="mobile-nav-link">FAQ</a>
+            <button type="button" class="btn-orange" id="btnDrawerOpenDashboard" style="width: 100%; margin-top: 8px;">Open dashboard</button>
           </div>
         </div>
-      </div>
 
-      <!-- Products Grid -->
-      <div id="todayProductsGrid" class="cards-grid">
-        <div class="loading-placeholder">Loading today's product forecasts and arrivals...</div>
+        <!-- 2. Hero Section -->
+        <section class="landing-hero" id="hero">
+          <div class="landing-container">
+            <div class="hero-pill-badge">
+              <span class="landing-tag-dot"></span>
+              <span>Smart logistics for physical warehouses</span>
+            </div>
+
+            <h1 class="hero-headline">
+              The warehouse that knows <span class="text-orange">what arrives, where it goes</span> and when it sells.
+            </h1>
+
+            <p class="hero-subline">
+              RFID tags, an IR sensor and an AI forecast in one simple app.<br class="hero-subline-br">
+              Sorted automatically. Warned before stock expires.
+            </p>
+
+            <!-- Hero Live Feed Terminal Box -->
+            <div class="hero-feed-container">
+              <div class="hero-feed-glow" aria-hidden="true"></div>
+              <div class="hero-feed-box">
+                <div class="hero-feed-content">
+                  <span class="hero-feed-status-dot" title="Live sensor feed active"></span>
+                  <div class="hero-feed-text-wrap">
+                    <span id="heroTypewriterText">Initializing intake feed...</span>
+                    <span class="hero-feed-caret"></span>
+                  </div>
+                </div>
+                <button type="button" class="hero-feed-btn" id="btnHeroOpenDashboard" title="Open the dashboard" aria-label="Open the dashboard">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Three Quick-Action Cards -->
+            <div class="hero-quick-cards">
+              <button type="button" class="quick-card" id="quickCardToday">
+                <div class="quick-card-left">
+                  <div class="quick-card-icon">📦</div>
+                  <div>
+                    <div class="quick-card-title">See today's parcels</div>
+                    <div class="quick-card-sub" id="quickCardTodaySub">Real-time arrival progress</div>
+                  </div>
+                </div>
+                <span class="quick-card-arrow">→</span>
+              </button>
+
+              <button type="button" class="quick-card" id="quickCardRisk">
+                <div class="quick-card-left">
+                  <div class="quick-card-icon">⚠️</div>
+                  <div>
+                    <div class="quick-card-title">Check what may expire</div>
+                    <div class="quick-card-sub">Stock at risk before selling</div>
+                  </div>
+                </div>
+                <span class="quick-card-arrow">→</span>
+              </button>
+
+              <button type="button" class="quick-card" id="quickCardForecast">
+                <div class="quick-card-left">
+                  <div class="quick-card-icon">📈</div>
+                  <div>
+                    <div class="quick-card-title">View the forecast</div>
+                    <div class="quick-card-sub">7-day AI demand projection</div>
+                  </div>
+                </div>
+                <span class="quick-card-arrow">→</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. Strip (Marquee) -->
+        <section class="marquee-strip-section" aria-label="System capabilities">
+          <div class="marquee-track">
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>RFID tag reading</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>Infrared arrival check</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>Weight sorting</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>Cloud database</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>AI forecast</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>Expiry alerts</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>Works on any phone</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>Servo diverter gate</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>Real-time intake log</span></div>
+            <!-- Duplicated for infinite loop -->
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>RFID tag reading</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>Infrared arrival check</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>Weight sorting</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>Cloud database</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>AI forecast</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>Expiry alerts</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>Works on any phone</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>Servo diverter gate</span></div>
+            <div class="marquee-chip"><span class="marquee-chip-dot"></span><span>Real-time intake log</span></div>
+          </div>
+        </section>
+
+        <!-- 4. Interactive Conveyor Belt Canvas Simulation (MiniBelt) -->
+        <section class="mini-belt-section" id="mini-belt">
+          <div class="landing-container">
+            <div class="landing-section-header">
+              <div class="landing-tag">
+                <span class="landing-tag-dot"></span>
+                <span>Interactive Demo</span>
+              </div>
+              <h2 class="landing-section-title">See the sorting belt in action</h2>
+              <p class="landing-section-subtitle">
+                Every parcel passes the IR gate, flashes on scan, and is sorted by weight in real time. Click anywhere on the belt to drop a new box.
+              </p>
+            </div>
+
+            <div class="mini-belt-card">
+              <div class="mini-belt-stats">
+                <div class="mini-belt-stats-left">
+                  <div class="belt-counter-pill blue">
+                    <span class="belt-counter-label">Left Lane (&lt; 10 kg)</span>
+                    <span class="belt-counter-num" id="canvasLeftCount">14</span>
+                  </div>
+                  <div class="belt-counter-pill gold">
+                    <span class="belt-counter-label">Right Lane (≥ 10 kg)</span>
+                    <span class="belt-counter-num" id="canvasRightCount">08</span>
+                  </div>
+                </div>
+                <button type="button" class="btn-ghost" id="btnDropCanvasBox" style="min-height: 38px; padding: 6px 14px; font-size: 13.5px;">
+                  + Drop a parcel
+                </button>
+              </div>
+
+              <div id="miniBeltCanvasWrap" class="mini-belt-canvas-wrap" role="button" tabindex="0" aria-label="Conveyor belt animation. Click to drop a parcel.">
+                <div class="mini-belt-instruction">⚡ Click anywhere to drop a box</div>
+                <canvas id="miniBeltCanvas" class="mini-belt-canvas"></canvas>
+              </div>
+
+              <div class="mini-belt-rules-row">
+                <div class="mini-belt-rule-item"><span>🔵</span><span><strong>Under 10 kg</strong> goes left</span></div>
+                <div class="mini-belt-rule-item"><span>🟡</span><span><strong>10 kg &amp; over</strong> goes right</span></div>
+                <div class="mini-belt-rule-item"><span>📡</span><span><strong>Sensor gate</strong> confirms intake</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. Why Us (Comparison Table) -->
+        <section class="why-us-section" id="why-us">
+          <div class="landing-container">
+            <div class="landing-section-header">
+              <div class="landing-tag">
+                <span class="landing-tag-dot"></span>
+                <span>Why Us</span>
+              </div>
+              <h2 class="landing-section-title">What makes this different</h2>
+              <p className="landing-section-subtitle">
+                Many inventory websites depend on people typing things in. Ours is connected to the physical warehouse.
+              </p>
+            </div>
+
+            <div class="compare-card-table">
+              <div class="compare-head-row">
+                <div class="compare-head-cell">A typical inventory website</div>
+                <div class="compare-head-cell highlight">Smart Warehouse</div>
+              </div>
+
+              <div class="compare-body-row">
+                <div class="compare-cell typical"><div class="compare-topic-label">Adding a parcel</div><div>Typed in by hand or scanned one-by-one with expensive handhelds.</div></div>
+                <div class="compare-cell smart"><div class="compare-topic-label">Adding a parcel</div><div><span class="compare-check-icon">✓</span>Read automatically from an RFID tag when the box passes the station.</div></div>
+              </div>
+
+              <div class="compare-body-row">
+                <div class="compare-cell typical"><div class="compare-topic-label">Knowing it arrived</div><div>You trust whoever entered the data into the spreadsheet.</div></div>
+                <div class="compare-cell smart"><div class="compare-topic-label">Knowing it arrived</div><div><span class="compare-check-icon">✓</span>An infrared beam sensor confirms the box physically broke the beam.</div></div>
+              </div>
+
+              <div class="compare-body-row">
+                <div class="compare-cell typical"><div class="compare-topic-label">Sorting</div><div>Workers read labels and sort by eye or carry boxes manually.</div></div>
+                <div class="compare-cell smart"><div class="compare-topic-label">Sorting</div><div><span class="compare-check-icon">✓</span>A servo gate routes under 10 kg left and 10 kg or more right.</div></div>
+              </div>
+
+              <div class="compare-body-row">
+                <div class="compare-cell typical"><div class="compare-topic-label">Planning</div><div>Guesswork, gut feeling, or static quarterly spreadsheets.</div></div>
+                <div class="compare-cell smart"><div class="compare-topic-label">Planning</div><div><span class="compare-check-icon">✓</span>A daily forecast compared with the parcels that actually arrived.</div></div>
+              </div>
+
+              <div class="compare-body-row">
+                <div class="compare-cell typical"><div class="compare-topic-label">Expiry management</div><div>Found when someone randomly checks the shelf or stock spoils.</div></div>
+                <div class="compare-cell smart"><div class="compare-topic-label">Expiry management</div><div><span class="compare-check-icon">✓</span>Flagged before it happens when a box is predicted to sell after expiry.</div></div>
+              </div>
+
+              <div class="compare-body-row">
+                <div class="compare-cell typical"><div class="compare-topic-label">Cost and setup</div><div>Expensive enterprise scanners, proprietary server stacks.</div></div>
+                <div class="compare-cell smart"><div class="compare-topic-label">Cost and setup</div><div><span class="compare-check-icon">✓</span>Affordable ESP32 microcontrollers, open web app on any browser.</div></div>
+              </div>
+            </div>
+
+            <!-- Empirical Throughput & Efficiency Benchmark (What makes this different) -->
+            <div class="throughput-benchmark-card">
+              <div class="tb-card-header">
+                <div class="tb-card-title">
+                  <span>Intake &amp; Sorting Throughput Benchmark</span>
+                  <span class="sim-pill">HYPOTHETICAL BENCHMARK (SIMULATED)</span>
+                </div>
+                <p class="tb-card-sub">Measured intake pacing comparing traditional manual check-in vs automated RFID + IR conveyor station.</p>
+              </div>
+
+              <!-- Top Stats Row -->
+              <div class="tb-header-grid">
+                <div class="tb-stat-box">
+                  <span class="tb-label">Manual operation</span>
+                  <span class="tb-val-huge">60</span>
+                  <span class="tb-unit">Parcels per hour</span>
+                </div>
+                <div class="tb-stat-box" style="text-align: right;">
+                  <span class="tb-label">Hypothetical NEXUS / Smart Warehouse</span>
+                  <span class="tb-val-huge highlight-automated">180</span>
+                  <span class="tb-unit">Parcels per hour</span>
+                </div>
+              </div>
+
+              <!-- Central Bar Chart -->
+              <div class="tb-chart-wrap">
+                <div class="tb-y-axis">
+                  <span>200</span>
+                  <span>150</span>
+                  <span>100</span>
+                  <span>50</span>
+                  <span>0</span>
+                </div>
+
+                <div class="tb-chart-body">
+                  <div class="tb-grid-lines">
+                    <span class="tb-grid-line"></span>
+                    <span class="tb-grid-line"></span>
+                    <span class="tb-grid-line"></span>
+                    <span class="tb-grid-line"></span>
+                    <span class="tb-grid-line"></span>
+                  </div>
+
+                  <!-- Manual Bar (60 / 200 = 30%) -->
+                  <div class="tb-bar-col">
+                    <div class="tb-bar-fill" style="height: 30%;" title="Manual: 60 parcels/hour"></div>
+                    <span class="tb-bar-label">Manual</span>
+                  </div>
+
+                  <!-- Automated Bar (180 / 200 = 90%) -->
+                  <div class="tb-bar-col">
+                    <div class="tb-bar-fill" style="height: 90%; background: #1D4ED8;" title="Automated: 180 parcels/hour"></div>
+                    <span class="tb-bar-label">Automated</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bottom Impact Metrics -->
+              <div class="tb-footer-grid">
+                <div class="tb-footer-stat">
+                  <span class="tb-footer-label">Throughput multiplier</span>
+                  <span class="tb-footer-val">3×</span>
+                </div>
+                <div class="tb-footer-stat" style="text-align: right;">
+                  <span class="tb-footer-label">
+                    <span class="tb-circle-icon">↓</span>
+                    <span>Cycle-time reduction</span>
+                  </span>
+                  <span class="tb-footer-val">66.7%</span>
+                </div>
+              </div>
+            </div>
+
+            <p class="honest-disclaimer-note">
+              Note: In this demo, expiry dates, sell-by predictions and demand forecasts use simulated data. Arrival detection and weight sorting come directly from physical hardware.
+            </p>
+          </div>
+        </section>
+
+        <!-- 6. Who It's For (Audience Benefit Cards) -->
+        <section class="who-section" id="who-its-for">
+          <div class="landing-container">
+            <div class="landing-section-header">
+              <div class="landing-tag">
+                <span class="landing-tag-dot"></span>
+                <span>Built For Real Owners</span>
+              </div>
+              <h2 class="landing-section-title">Designed for businesses with physical goods</h2>
+              <p class="landing-section-subtitle">
+                Whether you run a neighbourhood grocer or a regional logistics hub, Smart Warehouse fits your daily routine.
+              </p>
+            </div>
+
+            <!-- Audience Navigation Tabs -->
+            <div class="who-tabs-nav" role="tablist">
+              <button type="button" class="who-tab-btn active" data-audience="shops">Small shops</button>
+              <button type="button" class="who-tab-btn" data-audience="distributors">Distributors</button>
+              <button type="button" class="who-tab-btn" data-audience="grocery">Food and grocery</button>
+              <button type="button" class="who-tab-btn" data-audience="pharmacies">Pharmacies</button>
+            </div>
+
+            <!-- Dynamic Audience Cards Container -->
+            <div class="who-cards-grid" id="whoCardsContainer">
+              <!-- Dynamically populated from script -->
+            </div>
+          </div>
+        </section>
+
+        <!-- 7. How It Works (Workflow Steps) -->
+        <section class="how-section" id="how-it-works">
+          <div class="landing-container">
+            <div class="landing-section-header">
+              <div class="landing-tag">
+                <span class="landing-tag-dot"></span>
+                <span>Workflow</span>
+              </div>
+              <h2 class="landing-section-title">How physical warehouse sorting works</h2>
+              <p class="landing-section-subtitle">
+                From arrival dock to inventory forecast in four automated seconds.
+              </p>
+            </div>
+
+            <div class="how-steps-wrap">
+              <div class="how-step-card">
+                <div class="how-step-badge">1</div>
+                <h3 class="how-step-title">Scan the tag</h3>
+                <p class="how-step-desc">An RFID antenna reads the tag attached to the box as it passes the intake conveyor.</p>
+              </div>
+              <div class="how-step-card">
+                <div class="how-step-badge">2</div>
+                <h3 class="how-step-title">Confirm arrival</h3>
+                <p class="how-step-desc">An infrared beam sensor verifies that the box physically arrived and was not just keyed in.</p>
+              </div>
+              <div class="how-step-card">
+                <div class="how-step-badge">3</div>
+                <h3 class="how-step-title">Sort by weight</h3>
+                <p class="how-step-desc">Under 10 kg slides to the left lane; 10 kg or more is directed to the right lane by the servo gate.</p>
+              </div>
+              <div class="how-step-card">
+                <div class="how-step-badge">4</div>
+                <h3 class="how-step-title">Know what happens next</h3>
+                <p class="how-step-desc">The app predicts daily arrival patterns and flags stock that might expire before it is sold.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 8. Dashboard Preview Frame -->
+        <section class="preview-section" id="preview">
+          <div class="landing-container">
+            <div class="landing-section-header">
+              <div class="landing-tag">
+                <span class="landing-tag-dot"></span>
+                <span>Owner Dashboard</span>
+              </div>
+              <h2 class="landing-section-title">Clean, human-readable information</h2>
+              <p class="landing-section-subtitle">
+                No charts cluttering the view, no technical jargon. Just clear numbers and sentences anyone can understand.
+              </p>
+            </div>
+
+            <div class="preview-frame">
+              <div class="preview-browser-bar">
+                <span class="browser-dot red"></span>
+                <span class="browser-dot yellow"></span>
+                <span class="browser-dot green"></span>
+                <span class="browser-url-bar">smart-warehouse.local/#today</span>
+              </div>
+              <div class="preview-content">
+                <h3 class="preview-headline">
+                  <span class="text-orange" id="previewHeadlineNum">32 of 40 parcels</span> have arrived today.
+                </h3>
+                <p class="preview-subline">Automated intake tracking with hardware infrared verification.</p>
+
+                <div class="preview-mini-grid">
+                  <div class="preview-stat-card">
+                    <div class="preview-stat-num" id="previewStatLeft">18</div>
+                    <div class="preview-stat-label">Went left (under 10 kg)</div>
+                  </div>
+                  <div class="preview-stat-card gold">
+                    <div class="preview-stat-num" id="previewStatRight">14</div>
+                    <div class="preview-stat-label">Went right (10 kg and over)</div>
+                  </div>
+                  <div class="preview-stat-card red">
+                    <div class="preview-stat-num" id="previewStatRisk">0</div>
+                    <div class="preview-stat-label">May expire before they sell</div>
+                  </div>
+                </div>
+
+                <button type="button" class="btn-orange" id="btnPreviewOpenLive">
+                  Open the live dashboard →
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 9. Team & Tech (Team Hyxon) -->
+        <section class="team-section" id="team">
+          <div class="landing-container">
+            <div class="team-card">
+              <div class="team-badge">Engineered with Purpose</div>
+              <h2 class="team-name">Team Hyxon</h2>
+              <p class="team-hackathon-line">Built for the Innovation Hackathon · Project Smart Warehouse</p>
+
+              <div class="tech-chips-wrap">
+                <span class="tech-chip">ESP32 Microcontroller</span>
+                <span class="tech-chip">RC522 RFID Antenna</span>
+                <span class="tech-chip">Infrared Obstacle Sensor</span>
+                <span class="tech-chip">SG90 Servo Diverter Gate</span>
+                <span class="tech-chip">Supabase Realtime Database</span>
+                <span class="tech-chip">LightGBM Demand Forecaster</span>
+                <span class="tech-chip">Autodesk Fusion 360 Simulation</span>
+                <span class="tech-chip">U8g2 OLED Hardware Driver</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 10. Frequently Asked Questions (Accordion) -->
+        <section class="faq-section" id="faq">
+          <div class="landing-container">
+            <div class="landing-section-header">
+              <div class="landing-tag">
+                <span class="landing-tag-dot"></span>
+                <span>Got Questions?</span>
+              </div>
+              <h2 class="landing-section-title">Frequently asked questions</h2>
+              <p class="landing-section-subtitle">
+                Clear, honest answers about the hardware, software, and real warehouse deployment.
+              </p>
+            </div>
+
+            <div class="faq-list" id="faqAccordionList">
+              <!-- Dynamically populated or rendered -->
+            </div>
+          </div>
+        </section>
+
+        <!-- 11. Final CTA & Footer -->
+        <section class="final-cta-section">
+          <div class="landing-container">
+            <h2 class="final-cta-headline">
+              Open the <span class="text-orange">first box</span>.
+            </h2>
+            <button type="button" class="btn-orange" id="btnFooterOpenDashboard" style="font-size: 16px; padding: 14px 32px;">
+              Open dashboard →
+            </button>
+          </div>
+        </section>
+
+        <footer class="landing-footer" role="contentinfo">
+          <div class="landing-container">
+            <div class="footer-columns-grid">
+              <div>
+                <div class="landing-logo" style="margin-bottom: 14px;">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                  </svg>
+                  <span>Smart Warehouse</span>
+                </div>
+                <p style="font-size: 14px; color: #888; max-width: 280px; line-height: 1.5;">
+                  Physical automated parcel sorting and intelligent expiry forecasting for warehouse owners.
+                </p>
+              </div>
+
+              <div>
+                <div class="footer-col-title">Product</div>
+                <ul class="footer-links-list">
+                  <li><a href="#mini-belt" class="footer-link">Weight Sorting</a></li>
+                  <li><a href="#why-us" class="footer-link">Expiry Alerts</a></li>
+                  <li><a href="#preview" class="footer-link">Arrival Forecast</a></li>
+                  <li><a href="#who-its-for" class="footer-link">Who It's For</a></li>
+                </ul>
+              </div>
+
+              <div>
+                <div class="footer-col-title">Team</div>
+                <ul class="footer-links-list">
+                  <li><a href="#team" class="footer-link">Team Hyxon</a></li>
+                  <li><a href="#how-it-works" class="footer-link">How It Works</a></li>
+                  <li><a href="#faq" class="footer-link">FAQ</a></li>
+                </ul>
+              </div>
+
+              <div>
+                <div class="footer-col-title">Dashboard</div>
+                <ul class="footer-links-list">
+                  <li><button type="button" class="footer-link" id="footerLinkToday" style="background: none; border: none; padding: 0; cursor: pointer;">Today Tab</button></li>
+                  <li><button type="button" class="footer-link" id="footerLinkParcels" style="background: none; border: none; padding: 0; cursor: pointer;">Parcels List</button></li>
+                  <li><button type="button" class="footer-link" id="footerLinkForecast" style="background: none; border: none; padding: 0; cursor: pointer;">7-Day Forecast</button></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="footer-bottom-row">
+              <div>© 2026 Smart Warehouse by Team Hyxon. All rights reserved.</div>
+              <div style="color: #666;">Built for 24h IoT Innovation Hackathon</div>
+            </div>
+          </div>
+        </footer>
+
       </div>
     </section>
 
-    <!-- ═════════════════════════════════════════════════════════════ -->
-    <!-- SCREEN 2: CURRENT STOCK                                        -->
-    <!-- ═════════════════════════════════════════════════════════════ -->
-    <section id="screen-stock" class="screen-view">
-      <div class="screen-header">
-        <div>
-          <h2 class="screen-title">2. Current Warehouse Stock</h2>
-          <p class="screen-desc">Authoritative inventory batches with arrival timestamp, simulated expiry, estimated sell date, and risk analysis.</p>
-        </div>
-        <div class="header-stats">
-          <div class="stat-pill">
-            <span class="stat-lbl">Active Batches:</span>
-            <span id="statStockBatches" class="stat-val">0</span>
-          </div>
-          <div class="stat-pill">
-            <span class="stat-lbl">Total Units:</span>
-            <span id="statStockUnits" class="stat-val highlight-blue">0</span>
-          </div>
-          <div class="stat-pill">
-            <span class="stat-lbl">Expiry Risk:</span>
-            <span id="statStockRisk" class="stat-val highlight-amber">0</span>
-          </div>
-        </div>
-      </div>
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 1: TODAY (Live Dashboard)                                   -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section id="panel-today" class="tab-panel" aria-label="Today" hidden>
+      <div class="page-wrap">
+        <header class="today-intro">
+          <h1 class="today-headline">
+            <span id="headlineCountArrived" class="num-blue">0</span> of
+            <span id="headlineCountExpected">0</span> parcels have arrived.
+          </h1>
+          <p class="today-subline" id="headlineSubline">
+            Loading today's expected parcels and arrivals...
+          </p>
+        </header>
 
-      <!-- Stock Table Container -->
-      <div class="table-card">
-        <div class="table-responsive">
-          <table class="data-table" id="stockTable">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Tag UID</th>
-                <th>Quantity</th>
-                <th>Arrived At</th>
-                <th>Simulated Expiry</th>
-                <th>Est. Sell Date</th>
-                <th>Expiry Risk Status</th>
-              </tr>
-            </thead>
-            <tbody id="stockTableBody">
-              <tr>
-                <td colspan="7" class="empty-state">Loading warehouse stock batches...</td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Belt Visualization -->
+        <section class="belt-section" aria-label="Parcel arrival progress">
+          <div class="belt-track">
+            <div class="belt-row" id="beltRowContainer"></div>
+            <div id="arrivalMotionEl" class="arrival-motion arrival-motion--L" style="display: none;" aria-hidden="true">
+              <svg class="arrival-box" viewBox="0 0 24 24">
+                <path d="m3 8 9-5 9 5v11l-9 4-9-4zM3 8l9 5 9-5M12 13v10M8 5l9 5" />
+              </svg>
+              <span class="sensor-flash"></span>
+            </div>
+          </div>
+          <p class="belt-legend">
+            <span class="legend-item"><i class="dot dot--blue"></i> Blue went left (&lt;10 kg)</span>
+            <span class="legend-item"><i class="dot dot--gold"></i> Gold went right (≥10 kg)</span>
+            <span class="legend-item"><i class="dot dot--grey"></i> Grey is still on its way</span>
+          </p>
+        </section>
+
+        <!-- 3 Stat Cards -->
+        <section class="stat-grid" aria-label="Parcel totals">
+          <article class="stat-card stat-card--left">
+            <p class="stat-num" id="statLeftCount">0</p>
+            <p class="stat-label">Went left <span>(under 10 kg)</span></p>
+          </article>
+          <article class="stat-card stat-card--right">
+            <p class="stat-num" id="statRightCount">0</p>
+            <p class="stat-label">Went right <span>(10 kg and over)</span></p>
+          </article>
+          <article class="stat-card stat-card--risk" id="statRiskCard">
+            <p class="stat-num" id="statRiskCount">0</p>
+            <p class="stat-label">May expire before they sell</p>
+          </article>
+        </section>
+
+        <!-- Urgent Stock Attention Section -->
+        <section class="attention-section">
+          <h2 class="section-title">Needs your attention</h2>
+          <div id="attentionCardsContainer">
+            <p class="attention-none">Checking batch expiry and sell forecasts...</p>
+          </div>
+        </section>
+
+        <!-- Today Product Breakdown (Forecast Median + Band vs Arrived) -->
+        <section class="attention-section">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h2 class="section-title" style="margin: 0;">Product Forecasts &amp; Arrivals Today</h2>
+            <span class="sim-pill">SIMULATED DEMAND &amp; WEIGHT</span>
+          </div>
+          <div id="todayProductsGrid" class="products-today-grid">
+            <div class="empty-state">Loading product catalogs...</div>
+          </div>
+        </section>
+
+        <!-- Simulate A New Parcel (Client Demo) -->
+        <div class="action-row">
+          <button id="btnSimulateParcel" class="btn btn--primary" type="button">
+            Simulate a new parcel
+          </button>
+          <span class="sample-pill">SAMPLE DATA (Local Demo)</span>
+          <span style="font-size: 13px; color: var(--muted);">Triggers belt animation &amp; toast locally without writing fake data to cloud database.</span>
+        </div>
+
+        <!-- How sorting works -->
+        <section class="card sorting-card">
+          <h2 class="section-title">How sorting works</h2>
+          <ol class="sorting-steps">
+            <li>A tag is scanned at the ESP32 station.</li>
+            <li>An infrared sensor confirms the parcel physically arrived on the conveyor.</li>
+            <li>Parcels under 10 kg go left; 10 kg or more goes right via servo diverter gate.</li>
+            <li>Weights, expiry dates and demand forecasts are simulated.</li>
+          </ol>
+        </section>
+
+        <!-- Throughput Analysis Benchmark (For Judge Presentation) -->
+        <div class="throughput-benchmark-card" style="margin-top: 24px;">
+          <div class="tb-card-header">
+            <div class="tb-card-title">
+              <span>Intake &amp; Sorting Throughput Benchmark</span>
+              <span class="sim-pill">HYPOTHETICAL BENCHMARK (SIMULATED)</span>
+            </div>
+            <p class="tb-card-sub">Comparative intake analysis: Manual barcode check-in vs Smart Warehouse automated RFID + IR sorting.</p>
+          </div>
+
+          <div class="tb-header-grid">
+            <div class="tb-stat-box">
+              <span class="tb-label">Manual operation</span>
+              <span class="tb-val-huge">60</span>
+              <span class="tb-unit">Parcels per hour</span>
+            </div>
+            <div class="tb-stat-box" style="text-align: right;">
+              <span class="tb-label">Hypothetical NEXUS / Smart Warehouse</span>
+              <span class="tb-val-huge highlight-automated">180</span>
+              <span class="tb-unit">Parcels per hour</span>
+            </div>
+          </div>
+
+          <div class="tb-chart-wrap">
+            <div class="tb-y-axis">
+              <span>200</span>
+              <span>150</span>
+              <span>100</span>
+              <span>50</span>
+              <span>0</span>
+            </div>
+            <div class="tb-chart-body">
+              <div class="tb-grid-lines">
+                <span class="tb-grid-line"></span>
+                <span class="tb-grid-line"></span>
+                <span class="tb-grid-line"></span>
+                <span class="tb-grid-line"></span>
+                <span class="tb-grid-line"></span>
+              </div>
+              <div class="tb-bar-col">
+                <div class="tb-bar-fill" style="height: 30%;" title="Manual: 60 parcels/hour"></div>
+                <span class="tb-bar-label">Manual</span>
+              </div>
+              <div class="tb-bar-col">
+                <div class="tb-bar-fill" style="height: 90%; background: #1D4ED8;" title="Automated: 180 parcels/hour"></div>
+                <span class="tb-bar-label">Automated</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="tb-footer-grid">
+            <div class="tb-footer-stat">
+              <span class="tb-footer-label">Throughput multiplier</span>
+              <span class="tb-footer-val">3×</span>
+            </div>
+            <div class="tb-footer-stat" style="text-align: right;">
+              <span class="tb-footer-label">
+                <span class="tb-circle-icon">↓</span>
+                <span>Cycle-time reduction</span>
+              </span>
+              <span class="tb-footer-val">66.7%</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- ═════════════════════════════════════════════════════════════ -->
-    <!-- SCREEN 3: LIVE FEED                                            -->
-    <!-- ═════════════════════════════════════════════════════════════ -->
-    <section id="screen-feed" class="screen-view">
-      <div class="screen-header">
-        <div>
-          <h2 class="screen-title">3. Realtime Arrival Feed</h2>
-          <p class="screen-desc">Live scan events updating in realtime without page reload. OK, Unknown Tag, and Duplicate attempts shown distinctly.</p>
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 2: PARCELS & STOCK                                          -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section id="panel-parcels" class="tab-panel" aria-label="Stock and Parcels" hidden>
+      <div class="page-wrap">
+        <header class="tab-intro" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h1 class="tab-headline">Warehouse Stock &amp; Batches</h1>
+            <p class="tab-subline">Search arrived stock batches, verify lane sorting, estimated sell dates and simulated expiry dates.</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button id="btnViewCards" class="chip active" type="button">Card View</button>
+            <button id="btnViewTable" class="chip" type="button">Full Table</button>
+          </div>
+        </header>
+
+        <label class="search-label" for="parcelSearchInput">Search parcels</label>
+        <div class="search-wrap">
+          <input
+            id="parcelSearchInput"
+            class="search-box"
+            type="search"
+            placeholder="Search by product name, category or tag UID..."
+          >
+          <button id="btnSearchClear" class="search-clear" type="button" aria-label="Clear search" style="display: none;">×</button>
         </div>
-        <div class="feed-filters">
-          <button class="filter-chip active" data-filter="all">All Events (<span id="countFeedAll">0</span>)</button>
-          <button class="filter-chip chip-ok" data-filter="ok">OK (<span id="countFeedOk">0</span>)</button>
-          <button class="filter-chip chip-unknown" data-filter="unknown_tag">Unknown Tag (<span id="countFeedUnknown">0</span>)</button>
-          <button class="filter-chip chip-duplicate" data-filter="duplicate">Duplicate (<span id="countFeedDuplicate">0</span>)</button>
+
+        <div class="filter-row" aria-label="Filter parcels">
+          <button class="chip active" type="button" data-filter="all">All (<span id="countFilterAll">0</span>)</button>
+          <button class="chip" type="button" data-filter="left">Left Lane (&lt;10 kg)</button>
+          <button class="chip" type="button" data-filter="right">Right Lane (≥10 kg)</button>
+          <button class="chip" type="button" data-filter="risk">At Risk</button>
+        </div>
+
+        <div id="parcelsCardsContainer" class="parcel-list">
+          <div class="empty-state">Loading warehouse stock batches...</div>
+        </div>
+
+        <div id="parcelsTableContainer" class="table-card" style="display: none;">
+          <div class="table-responsive">
+            <table class="data-table" id="stockTable">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Tag UID</th>
+                  <th>Quantity</th>
+                  <th>Lane</th>
+                  <th>Arrived At</th>
+                  <th>Simulated Expiry</th>
+                  <th>Est. Sell Date</th>
+                  <th>Risk Status</th>
+                </tr>
+              </thead>
+              <tbody id="stockTableBody">
+                <tr>
+                  <td colspan="8" class="empty-state">Loading stock table...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
+    </section>
 
-      <!-- Live Events Stream -->
-      <div id="liveFeedContainer" class="feed-list">
-        <div class="empty-state">
-          <span class="empty-icon">📡</span>
-          <h3>Waiting for Arrival Events</h3>
-          <p>Scan a tag at the ESP32 station or run the backend test script to view live incoming arrival events.</p>
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 3: FORECAST                                                 -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section id="panel-forecast" class="tab-panel" aria-label="Forecast" hidden>
+      <div class="page-wrap">
+        <header class="tab-intro">
+          <h1 class="forecast-headline">Tomorrow, expect about <span id="forecastTomorrowCount" class="num-gold">0</span> parcels.</h1>
+          <p class="tab-subline">Expected parcels per day aggregated from daily AI demand models. Demand forecasts are SIMULATED.</p>
+        </header>
+
+        <section class="card forecast-card" aria-label="Seven day parcel forecast">
+          <div class="bar-chart" id="forecastBarChart"></div>
+          <p class="forecast-sim-note" style="margin: 0; color: var(--muted); font-size: 13.5px;">
+            <span class="sim-pill" style="margin-right: 6px;">SIMULATED DEMAND</span>
+            Bars represent aggregate daily demand (sum of p50 medians across catalog).
+          </p>
+        </section>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 4: LIVE FEED                                                -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section id="panel-feed" class="tab-panel" aria-label="Live Feed" hidden>
+      <div class="page-wrap">
+        <header class="tab-intro">
+          <h1 class="tab-headline">Realtime Arrival Feed</h1>
+          <p class="tab-subline">Live events stream from the ESP32 station and cloud scan endpoint via Supabase Realtime.</p>
+        </header>
+
+        <div class="filter-row" aria-label="Filter arrival events">
+          <button class="chip active" type="button" data-feed-filter="all">All Events (<span id="countFeedAll">0</span>)</button>
+          <button class="chip" type="button" data-feed-filter="ok">OK (<span id="countFeedOk">0</span>)</button>
+          <button class="chip" type="button" data-feed-filter="unknown_tag">Unknown Tag (<span id="countFeedUnknown">0</span>)</button>
+          <button class="chip" type="button" data-feed-filter="duplicate">Duplicate (<span id="countFeedDuplicate">0</span>)</button>
+        </div>
+
+        <div id="liveFeedContainer" class="feed-list">
+          <div class="empty-state">
+            <span class="empty-icon">📡</span>
+            <h3>Waiting for Arrival Events</h3>
+            <p>Scan a tag at the ESP32 station to view live incoming arrival events.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 5: PROJECTOR MODE                                           -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section id="panel-projector" class="tab-panel" aria-label="Projector Mode" hidden>
+      <div class="page-wrap">
+        <header class="tab-intro" style="margin-bottom: var(--space-lg);">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1 class="tab-headline" style="margin: 0;">Projector Presentation Mode</h1>
+            <span class="banner-badge">MULTI-PANEL DEMO</span>
+          </div>
+          <p class="tab-subline" style="margin-top: 4px;">High-contrast side-by-side view designed for projector presentations and live demo review.</p>
+        </header>
+
+        <div class="projector-grid">
+          <div>
+            <h3 class="section-title">Today's Product Forecasts vs Arrivals</h3>
+            <div id="projectorTodayContainer" class="products-today-grid" style="grid-template-columns: 1fr;"></div>
+          </div>
+          <div>
+            <h3 class="section-title">Realtime Arrival Feed</h3>
+            <div id="projectorFeedContainer" class="feed-list"></div>
+          </div>
         </div>
       </div>
     </section>
 
   </main>
 
-  <!-- Configuration Modal -->
-  <div id="settingsModal" class="modal-overlay hidden">
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container" style="display: none;" role="status" aria-live="polite">
+    <div id="toastMessage" class="toast"></div>
+  </div>
+
+  <!-- Settings / Config Modal -->
+  <div id="settingsModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-card">
       <div class="modal-header">
-        <h3>Supabase Read-Only Configuration</h3>
-        <button id="btnCloseSettings" class="btn-close" aria-label="Close Modal">&times;</button>
+        <h3 id="modalTitle">Supabase Read-Only Configuration</h3>
+        <button id="btnCloseSettings" class="btn-close" aria-label="Close modal">&times;</button>
       </div>
       <div class="modal-body">
-        <p class="modal-info">
-          Enter the read-only public parameters for your Supabase backend. These are stored locally in your browser.
-          <strong class="warn-highlight">Never enter the service_role key here.</strong>
+        <p style="font-size: 13.5px; color: var(--muted); margin: 0 0 16px;">
+          Enter the read-only public parameters for your Supabase backend. Values are stored locally in your browser.
+          <strong style="color: var(--risk); display: block; margin-top: 4px;">Never enter the service_role key here.</strong>
         </p>
 
         <div class="form-group">
           <label for="cfgSupabaseUrl">Supabase Project URL:</label>
-          <input type="text" id="cfgSupabaseUrl" class="form-input" placeholder="https://xyzcompany.supabase.co or http://127.0.0.1:54321">
+          <input type="text" id="cfgSupabaseUrl" class="form-input" placeholder="https://xyzcompany.supabase.co">
         </div>
 
         <div class="form-group">
           <label for="cfgAnonKey">Supabase Public Anon Key:</label>
-          <textarea id="cfgAnonKey" class="form-input form-textarea" rows="3" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."></textarea>
+          <textarea id="cfgAnonKey" class="form-input" rows="3" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."></textarea>
         </div>
 
-        <div class="config-actions">
-          <button id="btnSaveConfig" class="btn btn-primary">Save & Connect</button>
-          <button id="btnResetConfig" class="btn btn-danger">Reset to Defaults</button>
+        <div class="modal-actions">
+          <button id="btnResetConfig" class="btn btn--secondary" type="button">Reset to Defaults</button>
+          <button id="btnSaveConfig" class="btn btn--primary" type="button">Save &amp; Connect</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Load Config (git-ignored local config if present) -->
+  <!-- Configuration File (Optional local override) -->
   <script src="config.js" onerror="console.info('No local config.js found; checking localStorage/defaults.')"></script>
 
-  <!-- Load Supabase JS Client (UMD bundle with integrity fallback) -->
+  <!-- Supabase JS Client UMD Bundle from CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
-  <!-- Main Web App Script -->
+  <!-- Main Application Script -->
   <script src="js/app.js"></script>
 </body>
 </html>
