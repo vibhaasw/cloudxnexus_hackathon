@@ -667,8 +667,8 @@
     if (!config.supabaseUrl || !config.supabaseAnonKey ||
         config.supabaseUrl.includes('YOUR_PROJECT_ID') ||
         config.supabaseAnonKey.includes('YOUR_SUPABASE_ANON_KEY')) {
-      setConnectionStatus('offline', 'CONFIG REQUIRED');
-      openSettingsModal();
+      setConnectionStatus('offline', 'DEMO MODE');
+      console.info('[initSupabase] Supabase credentials not provided; running in demo mode. Click ⚙ Settings in dashboard to configure.');
       return false;
     }
 

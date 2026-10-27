@@ -1312,13 +1312,14 @@
     </div>
   </div>
 
-  <!-- Configuration File (Optional local override) -->
+  <!-- Configuration Files -->
+  <script src="config.public.js" onerror="console.info('No config.public.js found; checking config.js/defaults.')"></script>
   <script src="config.js" onerror="console.info('No local config.js found; checking localStorage/defaults.')"></script>
 
   <!-- Supabase JS Client UMD Bundle from CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
   <!-- Main Application Script -->
-  <script src="js/app.js?v=20261027_2"></script>
+  <script src="js/app.js?v=20261027_3"></script>
 </body>
 </html>

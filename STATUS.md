@@ -192,4 +192,13 @@
   - Expanded length from tight 980px to a generous 1260px (`max-width: 1260px`), softened border-radius to 18px, increased link spacing (`gap: 28px`), and relaxed padding for a more spacious, natural desktop feel.
 - Bumped stylesheet cache buster to `?v=20261027_5`. All 6 unit tests passing.
 
+### 2026-10-27: Supabase Auto-Popup Removal & Deployed Public Config
+- Removed automatic `openSettingsModal()` invocation on page load from `initSupabase()` in `web/js/app.js`.
+  - The modal will now only open when the user intentionally clicks the ⚙️ Settings button in the dashboard.
+  - If no credentials exist, the application gracefully operates in demo mode without blocking the screen with popups.
+- Added `web/config.public.js` and generator script `scripts/generate-public-config.mjs` (`npm run build:config`):
+  - Pre-bundles read-only public parameters (`SUPABASE_URL` and `SUPABASE_ANON_KEY`) for deployed static hosts so the live inventory and Realtime stream connect automatically out-of-the-box for all visitors.
+  - Complies with Rule 1 (never commit secret keys) and Rule 5 (web app holds public read-only key only).
+- Updated `web/index.html` to load `config.public.js` with fallback, and bumped application script version to `?v=20261027_3`. All 6 unit tests passing.
+
 

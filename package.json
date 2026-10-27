@@ -14,6 +14,7 @@
     "register": "node scripts/replay-register.mjs",
     "register:demo": "node scripts/register-demo-tags.mjs",
     "register:tags": "node scripts/register-demo-tags.mjs",
+    "build:config": "node scripts/generate-public-config.mjs",
     "demo:loop": "node scripts/auto-rearm.mjs",
     "reset": "node scripts/reset.mjs"
   }
