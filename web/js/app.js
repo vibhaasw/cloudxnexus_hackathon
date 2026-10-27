@@ -175,6 +175,9 @@
   const el = {};
 
   function initElements() {
+    el.siteHeader = document.getElementById('siteHeader');
+    el.mobileNav = document.querySelector('.main-nav--mobile');
+    el.btnHeaderGoHome = document.getElementById('btnHeaderGoHome');
     el.connectionStatus = document.getElementById('connectionStatus');
     el.connectionText = document.getElementById('connectionText');
     el.btnRefresh = document.getElementById('btnRefresh');
@@ -1384,6 +1387,19 @@
     if (!TAB_ORDER.includes(targetTab)) return;
     state.activeTab = targetTab;
 
+    // Set data-active-tab attribute for instant CSS-driven navbar switching
+    document.body.setAttribute('data-active-tab', targetTab);
+
+    const isHome = targetTab === 'home';
+
+    // Home page shows ONLY the landing navbar; entering dashboard shows the dashboard navbar
+    if (el.siteHeader) {
+      el.siteHeader.style.display = isHome ? 'none' : 'block';
+    }
+    if (el.mobileNav) {
+      el.mobileNav.style.display = isHome ? 'none' : '';
+    }
+
     const tabIndex = TAB_ORDER.indexOf(targetTab);
     const pillTranslate = `translateX(${tabIndex * 100}%)`;
 
@@ -1504,6 +1520,13 @@
 
     if (el.brandLogo) {
       el.brandLogo.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchTab('home');
+      });
+    }
+
+    if (el.btnHeaderGoHome) {
+      el.btnHeaderGoHome.addEventListener('click', (e) => {
         e.preventDefault();
         switchTab('home');
       });
@@ -1688,6 +1711,21 @@
     initLandingTypewriter();
     initMiniBeltCanvas();
     setupEvents();
+
+    // Initialize tab: landing page on home by default, or target dashboard tab if hash is set
+    const initialHash = (window.location.hash || '').replace(/^#/, '');
+    if (TAB_ORDER.includes(initialHash)) {
+      switchTab(initialHash);
+    } else {
+      switchTab('home');
+    }
+
+    window.addEventListener('hashchange', () => {
+      const h = (window.location.hash || '').replace(/^#/, '');
+      if (TAB_ORDER.includes(h)) {
+        switchTab(h);
+      }
+    });
 
     const ok = initSupabase();
     if (ok) {

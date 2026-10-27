@@ -157,9 +157,39 @@
   - Live 2D physics canvas `MiniBelt` with boxes dropping, infrared laser gate flash detection, weight routing to Left (<10 kg) and Right (≥10 kg) bins, live counters, and user drop interaction.
   - `WhyUs` comparison table (6 manual vs smart automation topics).
   - `WhoItsFor` audience tabs (Small shops, Distributors, Food and grocery, Pharmacies) with 3 benefit cards each.
-  - `HowItWorks` 4-step workflow cards and `DashboardPreview` mock browser frame.
-  - `TeamAndTech` section for Team Hyxon and technology stack chips.
-  - `Faq` interactive accordion and `Footer`.
-  - Added `Overview` tab to desktop and mobile navigation bars for seamless switching between the marketing front door and live warehouse operations.
+- Updated Team Section in Landing Page:
+  - Replaced placeholder technology chips with dedicated individual member cards for Team Hyxon:
+    - Jwallin (Mechanical Lead + General Manager)
+    - Aarav (Electronics Lead + Data Curator)
+    - Vibhaas (Software Lead)
+    - Suryansh Singh (Frontend Lead + Analysis Manager)
+    - Divyansh (Project Design + Status Manager)
+  - Styled according to inspiration mockup: ambient background glow, top social pills (Github, LinkedIn, Instagram), "Meet the Team" headline ("The minds behind the madness."), frosted glass rounded cards with circular avatars, clean role titles, and bottom GitHub & LinkedIn social buttons.
+  - Added cache-busting `?v=20261027_3` across stylesheets, synchronized critical team styles across HTML `<head>` and `styles.css`, and enforced explicit 104px circular constraints on avatar images to prevent raw unstyled image blowout under browser stylesheet caching.
+- Preset Physical RFID Demo Tags:
+  - Preset Tag 1 (`0AEFF505`, Chips 2.0 kg SIMULATED) in `scripts/demo-catalog.json`.
+  - Added `scripts/register-demo-tags.mjs` (`npm run register:demo` / `npm run register:tags`) to register demo tags in one command without manual CLI arguments.
+  - Added hands-free daemon `scripts/auto-rearm.mjs` (`npm run demo:loop`) that listens to Supabase Realtime for arrival scans and automatically re-arms tags after 3 seconds for continuous demonstrations.
+- Resolved Dual-Navbar Display Conflict:
+  - Landing Page (`home` tab): Shows ONLY the teammate's landing navbar (`Product`, `How it works`, `Why us`, `Who it's for`, `Dashboard`, `FAQ`, `Team`, `Open dashboard`). Top operational header is hidden.
+  - Operational Dashboard (`today`, `parcels`, `forecast`, `feed`, `projector` tabs): Shows the full operational navbar (`Smart Warehouse` brand, `Home`, `Today`, `Stock & Parcels`, `Forecast`, `Live Feed`, `Projector`, `← Home` return button, `● LIVE (REALTIME)` status dot, `↻` refresh, `⚙` settings modal, and `🌙` theme toggle). Landing navbar is cleanly hidden.
+  - Fixed display persistence by driving visibility via CSS attribute `body[data-active-tab="..."]`, removing fragile inline styles, adding `← Home` action button, and updating script reference with cache-buster `js/app.js?v=20261027_2` to prevent stale browser caches.
+  - Verified in headless Edge for both `#home` (dashboard header hidden) and `#today` (dashboard header visible). All 6 unit tests passing.
+- Team Section in Landing Page:
+  - Replaced random technology chips with dedicated individual member cards for Team Hyxon:
+    - Jwallin (Mechanical Lead + General Manager)
+    - Aarav (Electronics Lead + Data Curator)
+    - Vibhaas (Software Lead)
+    - Suryansh Singh (Frontend Lead + Analysis Manager)
+    - Divyansh (Project Design + Status Manager)
+  - Styled according to inspiration mockup: ambient background glow, top social pills (Github, LinkedIn, Instagram), "Meet the Team" headline ("The minds behind the madness."), frosted glass rounded cards with circular avatars, clean role titles, and bottom GitHub & LinkedIn social buttons.
+  - Added cache-busting `?v=20261027_3` across stylesheets, synchronized critical team styles across HTML `<head>` and `styles.css`, and enforced explicit 104px circular constraints on avatar images to prevent raw unstyled image blowout under browser stylesheet caching.
+
+### 2026-10-27: Minimal Glassmorphism & Visual Refinement
+- Redesigned Top Simulation Notice (TRD Rule 6):
+  - Replaced solid yellow/amber edge-to-edge banner with a subtle translucent chip (`rgba(245, 158, 11, 0.07)` background, `backdrop-filter: blur(14px)`, `border-bottom: 1px solid rgba(245, 158, 11, 0.16)`, rounded chip badge) keeping 100% compliance without looking like an emergency warning.
+- Floating Glass Navbar (Expanded & Relaxed):
+  - Expanded length from tight 980px to a generous 1260px (`max-width: 1260px`), softened border-radius to 18px, increased link spacing (`gap: 28px`), and relaxed padding for a more spacious, natural desktop feel.
+- Bumped stylesheet cache buster to `?v=20261027_5`. All 6 unit tests passing.
 
 

@@ -5,11 +5,16 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "start": "demand-forecasting-uq\\.venv\\Scripts\\python.exe -m http.server 8000 --directory web",
+    "serve": "demand-forecasting-uq\\.venv\\Scripts\\python.exe -m http.server 8000 --directory web",
     "setup": "node scripts/setup-env.mjs",
     "test:api": "node scripts/test-api.mjs",
     "test:sell-date": "node scripts/test-sell-date.mjs",
     "seed": "node scripts/seed.mjs",
     "register": "node scripts/replay-register.mjs",
+    "register:demo": "node scripts/register-demo-tags.mjs",
+    "register:tags": "node scripts/register-demo-tags.mjs",
+    "demo:loop": "node scripts/auto-rearm.mjs",
     "reset": "node scripts/reset.mjs"
   }
 }
